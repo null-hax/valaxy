@@ -434,6 +434,7 @@ export class Game {
     if (this.stateTime >= 3) {
       this.level++;
       this.formationManager.createWave();
+      this.powerUpManager.clearPowerUps(); // Reset powerups between rounds
       this.state = GameState.GAME_START;
       this.stateTime = 0;
     }

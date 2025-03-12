@@ -175,7 +175,7 @@
 }
 
 .title-screen-slide {
-  animation: slideUp 1.8s ease-out forwards;
+  animation: slideUp 2.5s linear forwards;
   will-change: transform, opacity;
 }
 

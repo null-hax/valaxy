@@ -247,8 +247,8 @@ export class PowerUp implements Collidable {
 export class PowerUpManager {
   private powerUps: PowerUp[] = [];
   private spawnTimer: number = 0;
-  private spawnInterval: number = 20; // Seconds between power-up spawns
-  private spawnChance: number = 0.3; // 30% chance to spawn a power-up
+  private spawnInterval: number = 25; // Seconds between power-up spawns
+  private spawnChance: number = 0.2; // 20% chance to spawn a power-up
 
   constructor(
     private soundEngine: SoundEngine,
@@ -292,8 +292,8 @@ export class PowerUpManager {
    * Spawn a power-up at the given enemy position (when enemy is destroyed)
    */
   public spawnPowerUpAtPosition(x: number, y: number, enemyPoints: number): void {
-    // Higher chance for better power-ups from higher-value enemies
-    const powerUpChance = Math.min(0.8, enemyPoints / 1000);
+    // Slightly reduced chance for power-ups from enemies
+    const powerUpChance = Math.min(0.6, enemyPoints / 1200);
     
     if (Math.random() < powerUpChance) {
       // Determine power-up type based on enemy value
