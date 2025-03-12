@@ -37,9 +37,10 @@ const getHighScores = async (): Promise<HighScore[]> => {
       
       if (!error && data) {
         console.log('Successfully retrieved high scores using stored procedure');
-        // Update the in-memory cache with the latest data
-        highScoresCache = data as HighScore[];
-        return data as HighScore[];
+        // Remove duplicates and update the in-memory cache with the latest data
+        const uniqueScores = removeDuplicateScores(data as HighScore[]);
+        highScoresCache = uniqueScores;
+        return uniqueScores;
       } else if (error) {
         console.error('Error using stored procedure:', error);
         // Fall through to try direct table access
@@ -80,9 +81,10 @@ const getHighScores = async (): Promise<HighScore[]> => {
       return highScoresCache;
     }
     
-    // Update the in-memory cache with the latest data
-    highScoresCache = data as HighScore[];
-    return data as HighScore[];
+    // Remove duplicates and update the in-memory cache with the latest data
+    const uniqueScores = removeDuplicateScores(data as HighScore[]);
+    highScoresCache = uniqueScores;
+    return uniqueScores;
   } catch (error) {
     console.error('Error reading high scores:', error);
     return highScoresCache;
@@ -258,9 +260,15 @@ export async function GET() {
     // Get all high scores from Supabase
     const highScores = await getHighScores();
     
-    // Return only the top 5 for display in the game
+    // Remove any duplicates
+    const uniqueScores = removeDuplicateScores(highScores);
+    
+    // Sort by score and return only the top 5 for display in the game
     // (We store 100 in the database but only show 5 in the UI)
-    const topFiveScores = highScores.slice(0, 5);
+    const topFiveScores = uniqueScores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+      
     return NextResponse.json(topFiveScores);
   } catch (error) {
     console.error('Error in GET handler:', error);
@@ -269,6 +277,24 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+// Helper function to remove duplicate scores
+function removeDuplicateScores(scores: HighScore[]): HighScore[] {
+  const uniqueScores: HighScore[] = [];
+  const seen = new Set<string>();
+  
+  for (const score of scores) {
+    // Create a unique key for this score
+    const key = `${score.name}-${score.score}-${score.wave}`;
+    
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueScores.push(score);
+    }
+  }
+  
+  return uniqueScores;
 }
 
 // POST handler to add a new high score
@@ -307,8 +333,12 @@ export async function POST(request: NextRequest) {
       newScores.push(newScore);
     }
     
+    // Combine with existing scores and remove duplicates
+    const combinedScores = [...highScoresCache, ...newScores];
+    const uniqueScores = removeDuplicateScores(combinedScores);
+    
     // Update in-memory cache with the new scores
-    highScoresCache = [...highScoresCache, ...newScores]
+    highScoresCache = uniqueScores
       .sort((a, b) => b.score - a.score)
       .slice(0, 5); // Keep top 5 in memory
     
@@ -496,7 +526,7 @@ export async function POST(request: NextRequest) {
       for (const newScore of newScores) {
         // Check if this score is already in the combined scores
         const scoreExists = combinedScores.some(
-          s => s.name === newScore.name && s.score === newScore.score
+          s => s.name === newScore.name && s.score === newScore.score && s.wave === newScore.wave
         );
         
         // If not, add it
@@ -506,20 +536,23 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Sort and limit to top 5 for the response
-      combinedScores = combinedScores
+      // Remove duplicates, sort and limit to top 5 for the response
+      const uniqueScores = removeDuplicateScores(combinedScores);
+      const topScores = uniqueScores
         .sort((a, b) => b.score - a.score)
         .slice(0, 5);
       
       // Update the in-memory cache
-      highScoresCache = combinedScores;
+      highScoresCache = topScores;
       
-      console.log('Final high scores response:', combinedScores);
-      return NextResponse.json(combinedScores);
+      console.log('Final high scores response:', topScores);
+      return NextResponse.json(topScores);
     } catch (getError) {
       console.error('Error getting updated scores:', getError);
       // Return the in-memory cache as fallback, making sure it includes the new scores
-      const finalScores = [...highScoresCache, ...newScores]
+      const combinedScores = [...highScoresCache, ...newScores];
+      const uniqueScores = removeDuplicateScores(combinedScores);
+      const finalScores = uniqueScores
         .sort((a, b) => b.score - a.score)
         .slice(0, 5);
       

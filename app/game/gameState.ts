@@ -477,6 +477,11 @@ export class Game {
     
     // Handle name entry
     if (this.nameEntryPosition < this.MAX_NAME_LENGTH) {
+      // Initialize first character if empty
+      if (this.playerName.length === 0) {
+        this.playerName = 'A';
+      }
+      
       // Move selection up/down through characters with debounce
       if (inputState.up === KeyState.PRESSED || (inputState.up === KeyState.HELD && this.nameEntryDebounce <= 0)) {
         const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
@@ -507,12 +512,9 @@ export class Game {
       }
       
       // Confirm character and move to next position - with strong debounce
-      // Add space key (fire) explicitly to make sure it works
       const confirmPressed =
           inputState.fire === KeyState.PRESSED ||
-          inputState.start === KeyState.PRESSED ||
-          inputState.left === KeyState.PRESSED ||
-          inputState.right === KeyState.PRESSED;
+          inputState.start === KeyState.PRESSED;
           
       // Special check for space key since it's important for confirmation
       if (this.inputHandler.isSpacePressed() && this.confirmDebounce <= 0) {
@@ -2120,13 +2122,16 @@ export class Game {
    * Check if current score is a high score
    */
   private isHighScore(): boolean {
+    const playerScore = this.player.getScore();
+    
     // If we have fewer than 5 scores, any score qualifies
     if (this.highScores.length < 5) {
       return true;
     }
     
     // Otherwise, check if the current score is higher than the lowest high score
-    return this.player.getScore() > this.highScores[this.highScores.length - 1].score;
+    const sortedScores = [...this.highScores].sort((a, b) => b.score - a.score);
+    return playerScore > sortedScores[Math.min(4, sortedScores.length - 1)].score;
   }
   
   /**
@@ -2140,20 +2145,29 @@ export class Game {
       wave: this.level
     };
     
-    this.highScores.push(newScore);
-    this.highScores.sort((a, b) => b.score - a.score);
+    // Check for duplicates before adding
+    const isDuplicate = this.highScores.some(
+      score => score.name === newScore.name && score.score === newScore.score && score.wave === newScore.wave
+    );
     
-    // Limit to top 5
-    if (this.highScores.length > 5) {
-      this.highScores = this.highScores.slice(0, 5);
+    if (!isDuplicate) {
+      this.highScores.push(newScore);
+      this.highScores.sort((a, b) => b.score - a.score);
+      
+      // Limit to top 5
+      if (this.highScores.length > 5) {
+        this.highScores = this.highScores.slice(0, 5);
+      }
+      
+      // Save to API and local storage
+      this.saveHighScores().catch(err => {
+        console.error('Failed to save high score to API:', err);
+        // Fallback to local storage only if API fails
+        this.saveHighScoresToLocalStorage();
+      });
+    } else {
+      console.log('Duplicate score detected, not adding to high scores');
     }
-    
-    // Save to API and local storage
-    this.saveHighScores().catch(err => {
-      console.error('Failed to save high score to API:', err);
-      // Fallback to local storage only if API fails
-      this.saveHighScoresToLocalStorage();
-    });
   }
   
   /**
@@ -2165,21 +2179,26 @@ export class Game {
       const response = await fetch('/api/highscores');
       
       if (response.ok) {
-        this.highScores = await response.json();
+        const apiScores = await response.json();
+        // Remove any duplicates from API response
+        this.highScores = this.removeDuplicateScores(apiScores);
         // Also update local storage with the latest scores
         this.saveHighScoresToLocalStorage();
       } else {
         // Fallback to local storage if API fails
         const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
         if (savedScores) {
-          this.highScores = JSON.parse(savedScores);
+          try {
+            const parsedScores = JSON.parse(savedScores);
+            // Remove any duplicates from local storage
+            this.highScores = this.removeDuplicateScores(parsedScores);
+          } catch (e) {
+            console.error('Error parsing local storage high scores:', e);
+            this.setDefaultHighScores();
+          }
         } else {
           // Initial default high scores
-          this.highScores = [
-            { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
-            { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
-            { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
-          ];
+          this.setDefaultHighScores();
           // Save to local storage as fallback
           this.saveHighScoresToLocalStorage();
         }
@@ -2191,7 +2210,9 @@ export class Game {
       const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
       if (savedScores) {
         try {
-          this.highScores = JSON.parse(savedScores);
+          const parsedScores = JSON.parse(savedScores);
+          // Remove any duplicates from local storage
+          this.highScores = this.removeDuplicateScores(parsedScores);
           return;
         } catch (e) {
           console.error('Error parsing local storage high scores:', e);
@@ -2199,21 +2220,31 @@ export class Game {
       }
       
       // Fallback to defaults if everything fails
-      this.highScores = [
-        { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
-        { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
-        { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
-      ];
+      this.setDefaultHighScores();
     }
+  }
+  
+  /**
+   * Set default high scores
+   */
+  private setDefaultHighScores(): void {
+    this.highScores = [
+      { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
+      { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
+      { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
+    ];
   }
   
   /**
    * Save high scores to API and local storage as backup
    */
   private async saveHighScores(): Promise<void> {
+    // Remove any duplicates
+    const uniqueScores = this.removeDuplicateScores(this.highScores);
+    
     // Keep only the top 5 scores
-    this.highScores.sort((a, b) => b.score - a.score);
-    this.highScores = this.highScores.slice(0, 5);
+    uniqueScores.sort((a, b) => b.score - a.score);
+    this.highScores = uniqueScores.slice(0, 5);
     
     try {
       // Save to local storage first as a reliable backup
@@ -2230,7 +2261,10 @@ export class Game {
       
       if (response.ok) {
         // Update local high scores with the sorted list from the server
-        this.highScores = await response.json();
+        const serverScores = await response.json();
+        
+        // Make sure we don't introduce duplicates from the server response
+        this.highScores = this.removeDuplicateScores(serverScores);
         console.log('High scores saved successfully:', this.highScores);
         
         // Update local storage with the latest from the server
@@ -2245,11 +2279,38 @@ export class Game {
   }
   
   /**
+   * Remove duplicate scores from an array of high scores
+   */
+  private removeDuplicateScores(scores: HighScore[]): HighScore[] {
+    const uniqueScores: HighScore[] = [];
+    const seen = new Set<string>();
+    
+    for (const score of scores) {
+      // Create a unique key for this score
+      const key = `${score.name}-${score.score}-${score.wave}`;
+      
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueScores.push(score);
+      }
+    }
+    
+    return uniqueScores;
+  }
+  
+  /**
    * Save high scores to local storage (fallback method)
    */
   private saveHighScoresToLocalStorage(): void {
     try {
-      localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(this.highScores));
+      // Ensure we're saving a deduplicated list
+      const uniqueScores = this.removeDuplicateScores(this.highScores);
+      
+      // Sort by score and limit to top 5
+      uniqueScores.sort((a, b) => b.score - a.score);
+      const topScores = uniqueScores.slice(0, 5);
+      
+      localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(topScores));
     } catch (error) {
       console.error('Error saving high scores to local storage:', error);
     }
