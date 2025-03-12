@@ -1,0 +1,365 @@
+/* Arcade Cabinet and CRT Effects */
+
+.arcade-cabinet {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 4/3;
+  border: 20px solid #1a1a1a;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 3px #000000,
+    0 0 0 18px #560c13,
+    0 0 40px rgba(255, 0, 0, 0.3),
+    0 0 70px rgba(0, 0, 0, 0.8),
+    inset 0 0 40px rgba(153, 0, 0, 0.4);
+  overflow: hidden;
+  background-color: #000;
+  /* Rich wooden panel texture */
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(60, 30, 30, 0.6) 0px,
+      rgba(40, 20, 20, 0.4) 10px,
+      rgba(60, 30, 30, 0.6) 20px
+    ),
+    linear-gradient(
+      170deg,
+      rgba(80, 30, 30, 0.8) 0%,
+      rgba(30, 15, 15, 0.2) 50%,
+      rgba(80, 30, 30, 0.8) 100%
+    );
+  /* Enhanced 3D effect */
+  position: relative;
+  transform-style: preserve-3d;
+  perspective: 1200px;
+  transform: rotateX(3deg);
+  transition: transform 0.5s ease;
+}
+
+.arcade-cabinet:hover {
+  transform: rotateX(1deg) scale(1.02);
+  box-shadow:
+    0 0 0 3px #000000,
+    0 0 0 18px #750d16,
+    0 0 50px rgba(255, 0, 0, 0.4),
+    0 0 80px rgba(0, 0, 0, 0.9),
+    inset 0 0 40px rgba(200, 0, 0, 0.5);
+}
+
+/* Decorative frame bolts */
+.arcade-cabinet::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+  z-index: -1;
+  border-radius: 14px;
+  background-image:
+    radial-gradient(circle at 10px 10px, #660000 0, #660000 3px, transparent 4px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #660000 0, #660000 3px, transparent 4px),
+    radial-gradient(circle at 10px calc(100% - 10px), #660000 0, #660000 3px, transparent 4px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #660000 0, #660000 3px, transparent 4px),
+    radial-gradient(circle at 50% 10px, #660000 0, #660000 3px, transparent 4px),
+    radial-gradient(circle at 50% calc(100% - 10px), #660000 0, #660000 3px, transparent 4px),
+    radial-gradient(circle at 10px 50%, #660000 0, #660000 3px, transparent 4px),
+    radial-gradient(circle at calc(100% - 10px) 50%, #660000 0, #660000 3px, transparent 4px);
+  pointer-events: none;
+}
+
+/* CRT screen effects */
+.crt-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.01) 50%,
+      rgba(0, 0, 0, 0.08) 50%,
+      rgba(0, 0, 0, 0.06) 100%
+    );
+  background-size: 100% 4px; /* Thinner scan lines for a sharper look */
+  z-index: 10;
+  opacity: 0.9;
+}
+
+.crt-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 50%,
+      rgba(0, 0, 0, 0.7) 100%
+    );
+  z-index: 11;
+}
+
+.crt-overlay::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.03),
+      rgba(0, 255, 0, 0.02),
+      rgba(0, 0, 255, 0.03)
+    );
+  box-shadow:
+    inset 0 0 150px rgba(153, 0, 0, 0.2),
+    inset 0 0 30px rgba(255, 0, 0, 0.1);
+  z-index: 12;
+  mix-blend-mode: screen;
+}
+
+/* Add enhanced scan lines animation */
+@keyframes scanlines {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 20px;
+  }
+}
+
+.crt-overlay {
+  animation: scanlines 0.8s steps(20) infinite;
+}
+
+/* More subtle CRT flicker effect - less distracting */
+@keyframes flicker {
+  0% {
+    opacity: 0.99;
+    filter: brightness(1.01) contrast(1.01);
+  }
+  25% {
+    opacity: 0.98;
+    filter: brightness(1.00) contrast(1.01);
+  }
+  50% {
+    opacity: 0.97;
+    filter: brightness(0.99) contrast(1.00);
+  }
+  75% {
+    opacity: 0.98;
+    filter: brightness(1.00) contrast(1.01);
+  }
+  100% {
+    opacity: 0.99;
+    filter: brightness(1.01) contrast(1.01);
+  }
+}
+
+/* Simulate subtle RGB color separation */
+@keyframes colorShift {
+  0% {
+    background-position: 0 0;
+    box-shadow:
+      inset -1px 0 1px rgba(255, 0, 0, 0.1),
+      inset 1px 0 1px rgba(0, 0, 255, 0.1);
+  }
+  50% {
+    background-position: 0 0;
+    box-shadow:
+      inset -2px 0 1px rgba(255, 0, 0, 0.15),
+      inset 2px 0 1px rgba(0, 0, 255, 0.15);
+  }
+  100% {
+    background-position: 0 0;
+    box-shadow:
+      inset -1px 0 1px rgba(255, 0, 0, 0.1),
+      inset 1px 0 1px rgba(0, 0, 255, 0.1);
+  }
+}
+
+/* Classic arcade title screen slide-up animation */
+@keyframes slideUp {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  20% {
+    transform: translateY(80%);
+    opacity: 0.3;
+  }
+  40% {
+    transform: translateY(60%);
+    opacity: 0.6;
+  }
+  60% {
+    transform: translateY(40%);
+    opacity: 0.8;
+  }
+  80% {
+    transform: translateY(10%);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.title-screen-slide {
+  animation: slideUp 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+}
+
+.arcade-cabinet {
+  animation:
+    flicker 1.5s infinite,
+    colorShift 4s infinite alternate;
+}
+
+/* Responsive size adjustments */
+@media (max-width: 640px) {
+  .arcade-cabinet {
+    border-width: 5px;
+    box-shadow: 
+      0 0 0 1px #000000,
+      0 0 0 5px #2c1215,
+      0 0 10px rgba(0, 0, 0, 0.8),
+      inset 0 0 10px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Virtual control styling for mobile */
+.virtual-joystick {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(30, 30, 30, 0.7);
+  border: 2px solid rgba(100, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.virtual-joystick-handle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(153, 0, 0, 0.9);
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+
+.fire-button {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(153, 0, 0, 0.8);
+  border: 2px solid rgba(200, 0, 0, 0.8);
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  touch-action: none;
+}
+
+.fire-button:active {
+  background: rgba(200, 0, 0, 0.9);
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.7);
+}
+
+/* Enhanced Vampire-themed glow effects */
+.vampire-glow {
+  text-shadow:
+    0 0 10px rgba(255, 0, 0, 0.7),
+    0 0 20px rgba(255, 0, 0, 0.5),
+    0 0 30px rgba(255, 0, 0, 0.3);
+  animation: vampireGlow 3s infinite alternate;
+  position: relative;
+}
+
+.vampire-glow::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: -10px;
+  right: -10px;
+  bottom: -10px;
+  z-index: -1;
+  filter: blur(15px);
+  background: rgba(153, 0, 0, 0.4);
+  border-radius: 50%;
+  opacity: 0.7;
+  animation: pulsate 2s ease-in-out infinite;
+}
+
+@keyframes pulsate {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+@keyframes vampireGlow {
+  0% {
+    text-shadow:
+      0 0 10px rgba(255, 0, 0, 0.7),
+      0 0 20px rgba(255, 0, 0, 0.5),
+      0 0 30px rgba(255, 0, 0, 0.3);
+  }
+  50% {
+    text-shadow:
+      0 0 15px rgba(255, 0, 0, 0.9),
+      0 0 30px rgba(255, 0, 0, 0.7),
+      0 0 45px rgba(255, 0, 0, 0.5),
+      0 0 60px rgba(255, 0, 0, 0.3);
+  }
+  100% {
+    text-shadow:
+      0 0 10px rgba(255, 0, 0, 0.7),
+      0 0 20px rgba(255, 0, 0, 0.5),
+      0 0 30px rgba(255, 0, 0, 0.3);
+  }
+}
+
+/* Blood drip animation for dramatic elements */
+@keyframes blooddrip {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 100px;
+  }
+}
+
+.blood-drips {
+  position: relative;
+}
+
+.blood-drips::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: -50px;
+  background-image:
+    linear-gradient(to bottom,
+      transparent 0%,
+      transparent 90%,
+      rgba(153, 0, 0, 0.7) 95%,
+      rgba(153, 0, 0, 0.4) 100%);
+  background-size: 100% 100px;
+  animation: blooddrip 10s linear infinite;
+  pointer-events: none;
+  z-index: 5;
+}

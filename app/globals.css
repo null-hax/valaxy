@@ -1,8 +1,9 @@
 @import "tailwindcss";
+@import "./components/game/arcade.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 @theme inline {
@@ -12,15 +13,126 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrolling */
+  width: 100vw;
+  height: 100vh;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrolling */
+}
+
+/* Arcade game container */
+.game-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* Loading progress styling */
+.loading-bar {
+  height: 10px;
+  background-color: #990000;
+  width: 0%;
+  transition: width 0.3s ease-in-out;
+}
+
+.loading-container {
+  width: 100%;
+  background-color: #333333;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+
+/* Enhanced pixelated font rendering */
+.pixel-text {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: none;
+  letter-spacing: 2px;
+  line-height: 1.5;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.8));
+}
+
+/* Blood-red text gradients */
+.vampire-text {
+  background: linear-gradient(to bottom, #ff0000, #770000);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow:
+    0 0 10px rgba(255, 0, 0, 0.7),
+    0 0 20px rgba(255, 0, 0, 0.4);
+  filter: brightness(1.2) contrast(1.1);
+}
+
+/* Enhanced arcade button styling */
+.arcade-button {
+  background-color: #cc0000;
+  border: 5px solid #440000;
+  color: white;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow:
+    0 8px 0 #440000,
+    0 0 20px rgba(255, 0, 0, 0.5),
+    inset 0 1px 10px rgba(255, 255, 255, 0.3);
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 16px;
+  cursor: pointer;
+  position: relative;
+  text-shadow: 0 -2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.arcade-button:hover {
+  background-color: #ff0000;
+  box-shadow:
+    0 8px 0 #660000,
+    0 0 30px rgba(255, 0, 0, 0.7),
+    inset 0 1px 15px rgba(255, 255, 255, 0.5);
+}
+
+.arcade-button:active {
+  box-shadow:
+    0 3px 0 #440000,
+    0 0 20px rgba(255, 0, 0, 0.6),
+    inset 0 1px 5px rgba(255, 255, 255, 0.3);
+  transform: translateY(5px);
+}
+
+/* Vampire-themed scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #660000;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #990000;
+}
+
+/* Make sure canvas is pixelated for authentic retro look */
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }

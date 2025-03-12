@@ -1,0 +1,671 @@
+/**
+ * Enemy Entities
+ * Implements the vampire-themed enemies in our Galaga clone
+ */
+
+import { Collidable, Rect } from '../engine/collision';
+import { Renderer } from '../engine/renderer';
+import { SoundEffect, SoundEngine } from '../sounds/soundEngine';
+import { Projectile } from './projectiles';
+
+// Different types of vampire enemies
+export enum EnemyType {
+  BASIC_VAMPIRE,   // Basic enemy (like Galaga's bee)
+  VAMPIRE_BAT,     // Mid-tier enemy (like Galaga's butterfly)
+  BLOOD_LORD       // Boss enemy (like Galaga's flagship)
+}
+
+// Enemy movement patterns
+export enum MovementPattern {
+  GRID,            // Stay in formation
+  DIVE,            // Dive attack toward player
+  CIRCLE,          // Circular movement
+  PATROL,          // Side to side patrol
+  RETURN_TO_GRID   // Return to formation position
+}
+
+// Enemy states
+export enum EnemyState {
+  SPAWNING,
+  ACTIVE,
+  EXPLODING,
+  TRANSFORMING,
+  CAPTURING
+}
+
+export interface EnemyFormationPosition {
+  x: number;
+  y: number;
+  row: number;
+  col: number;
+}
+
+export class Enemy implements Collidable {
+  // Position and dimensions
+  private x: number = 0;
+  private y: number = 0;
+  private width: number = 24;
+  private height: number = 24;
+  
+  // Movement
+  private velocityX: number = 0;
+  private velocityY: number = 0;
+  private movementPattern: MovementPattern = MovementPattern.GRID;
+  private gridPosition: EnemyFormationPosition;
+  private patrolDistance: number = 40;
+  private patrolSpeed: number = 50;
+  private patrolOriginX: number = 0;
+  private diveSpeed: number = 150;
+  private returnSpeed: number = 80;
+  private movementTimer: number = 0;
+  private pathPoints: {x: number, y: number}[] = [];
+  private pathIndex: number = 0;
+  
+  // State
+  private state: EnemyState = EnemyState.SPAWNING;
+  private active: boolean = true;
+  private points: number = 100;
+  
+  // Combat
+  private health: number = 1;
+  private projectiles: Projectile[] = [];
+  private fireRate: number = 2; // seconds between shots
+  private lastFireTime: number = 0;
+  private firingEnabled: boolean = false;
+  
+  // Effects
+  private explosionTimer: number = 0;
+  private explosionDuration: number = 0.5;
+  private transformationTimer: number = 0;
+  private transformationDuration: number = 1.0;
+  
+  // Animation
+  private animationFrame: number = 0;
+  private frameTime: number = 0;
+  private frameDuration: number = 0.2; // seconds per frame
+  private frameCount: number = 2;
+  private targetPlayer: {x: number, y: number} | null = null;
+  
+  constructor(
+    private type: EnemyType,
+    formationPosition: EnemyFormationPosition,
+    private soundEngine: SoundEngine,
+    private screenWidth: number,
+    private screenHeight: number
+  ) {
+    this.gridPosition = formationPosition;
+    this.x = formationPosition.x;
+    this.y = formationPosition.y;
+    this.patrolOriginX = formationPosition.x;
+    
+    // Set up enemy type-specific properties
+    this.setupType();
+  }
+  
+  /**
+   * Set up type-specific properties
+   */
+  private setupType(): void {
+    switch (this.type) {
+      case EnemyType.BASIC_VAMPIRE:
+        this.width = 24;
+        this.height = 24;
+        this.health = 1;
+        this.points = 100;
+        this.frameCount = 2;
+        this.firingEnabled = true;
+        this.fireRate = 3; // Fires less often
+        break;
+        
+      case EnemyType.VAMPIRE_BAT:
+        this.width = 28;
+        this.height = 24;
+        this.health = 1;
+        this.points = 150;
+        this.frameCount = 3; // More animation frames for wing flapping
+        this.firingEnabled = true;
+        this.fireRate = 2.5;
+        this.diveSpeed = 180; // Faster dive
+        break;
+        
+      case EnemyType.BLOOD_LORD:
+        this.width = 32;
+        this.height = 32;
+        this.health = 2; // Takes two hits
+        this.points = 400;
+        this.frameCount = 2;
+        this.firingEnabled = true;
+        this.fireRate = 2;
+        this.diveSpeed = 120; // Slower but more threatening
+        break;
+    }
+  }
+  
+  /**
+   * Update enemy state
+   */
+  public update(deltaTime: number, playerPosition: {x: number, y: number}): void {
+    this.targetPlayer = playerPosition;
+    
+    // Update animation
+    this.frameTime += deltaTime;
+    if (this.frameTime >= this.frameDuration) {
+      this.frameTime = 0;
+      this.animationFrame = (this.animationFrame + 1) % this.frameCount;
+    }
+    
+    // Update state
+    switch (this.state) {
+      case EnemyState.SPAWNING:
+        this.state = EnemyState.ACTIVE;
+        break;
+        
+      case EnemyState.EXPLODING:
+        this.explosionTimer += deltaTime;
+        if (this.explosionTimer >= this.explosionDuration) {
+          this.active = false;
+        }
+        break;
+        
+      case EnemyState.TRANSFORMING:
+        this.transformationTimer += deltaTime;
+        if (this.transformationTimer >= this.transformationDuration) {
+          this.completeTransformation();
+        }
+        break;
+        
+      case EnemyState.ACTIVE:
+        this.updateMovement(deltaTime);
+        this.attemptFiring();
+        break;
+    }
+    
+    // Update projectiles
+    this.projectiles = this.projectiles.filter(p => p.isActive());
+    for (const projectile of this.projectiles) {
+      projectile.update(deltaTime);
+    }
+  }
+  
+  /**
+   * Update enemy movement based on current pattern
+   */
+  private updateMovement(deltaTime: number): void {
+    this.movementTimer += deltaTime;
+    
+    switch (this.movementPattern) {
+      case MovementPattern.GRID:
+        // Minor hover movement in the grid
+        this.y = this.gridPosition.y + Math.sin(this.movementTimer * 2) * 3;
+        break;
+        
+      case MovementPattern.DIVE:
+        if (this.pathPoints.length === 0 || this.pathIndex >= this.pathPoints.length) {
+          // Return to grid if dive path is complete
+          this.setMovementPattern(MovementPattern.RETURN_TO_GRID);
+        } else {
+          // Follow dive path
+          const targetPoint = this.pathPoints[this.pathIndex];
+          const dx = targetPoint.x - this.x;
+          const dy = targetPoint.y - this.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < 5) {
+            // Move to next point
+            this.pathIndex++;
+          } else {
+            // Move toward current point
+            const speed = this.diveSpeed * deltaTime;
+            const ratio = speed / distance;
+            this.x += dx * ratio;
+            this.y += dy * ratio;
+          }
+        }
+        break;
+        
+      case MovementPattern.CIRCLE:
+        // Circular movement pattern
+        const circleRadius = 40;
+        const circleSpeed = 2;
+        this.x = this.patrolOriginX + Math.cos(this.movementTimer * circleSpeed) * circleRadius;
+        this.y = this.gridPosition.y + Math.sin(this.movementTimer * circleSpeed) * circleRadius;
+        break;
+        
+      case MovementPattern.PATROL:
+        // Side to side patrol
+        this.x = this.patrolOriginX + Math.sin(this.movementTimer * this.patrolSpeed / 100) * this.patrolDistance;
+        break;
+        
+      case MovementPattern.RETURN_TO_GRID:
+        // Return to formation position
+        const gridDx = this.gridPosition.x - this.x;
+        const gridDy = this.gridPosition.y - this.y;
+        const gridDistance = Math.sqrt(gridDx * gridDx + gridDy * gridDy);
+        
+        if (gridDistance < 5) {
+          // Back in formation
+          this.x = this.gridPosition.x;
+          this.y = this.gridPosition.y;
+          this.setMovementPattern(MovementPattern.GRID);
+        } else {
+          // Move toward formation position
+          const returnSpeed = this.returnSpeed * deltaTime;
+          const ratio = returnSpeed / gridDistance;
+          this.x += gridDx * ratio;
+          this.y += gridDy * ratio;
+        }
+        break;
+    }
+  }
+  
+  /**
+   * Set a new movement pattern
+   */
+  public setMovementPattern(pattern: MovementPattern, pathPoints?: {x: number, y: number}[]): void {
+    this.movementPattern = pattern;
+    this.pathIndex = 0;
+    
+    if (pattern === MovementPattern.DIVE && pathPoints) {
+      this.pathPoints = pathPoints;
+    }
+  }
+  
+  /**
+   * Create a dive attack path
+   */
+  public createDivePath(playerX: number): {x: number, y: number}[] {
+    const startX = this.x;
+    const startY = this.y;
+    const points: {x: number, y: number}[] = [];
+    
+    // Create a curve path for diving
+    const controlPoint1X = startX + (Math.random() * 100 - 50);
+    const controlPoint1Y = startY + 100;
+    const controlPoint2X = playerX + (Math.random() * 80 - 40);
+    const controlPoint2Y = this.screenHeight - 100;
+    const endX = Math.random() * this.screenWidth;
+    const endY = -50; // Off screen at the top
+    
+    // Generate points along a bezier curve
+    const steps = 20;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const u = 1 - t;
+      
+      // Cubic bezier formula
+      const x = u*u*u*startX + 3*u*u*t*controlPoint1X + 3*u*t*t*controlPoint2X + t*t*t*endX;
+      const y = u*u*u*startY + 3*u*u*t*controlPoint1Y + 3*u*t*t*controlPoint2Y + t*t*t*endY;
+      
+      points.push({x, y});
+    }
+    
+    return points;
+  }
+  
+  /**
+   * Attempt to fire a projectile
+   */
+  private attemptFiring(): void {
+    if (!this.firingEnabled || this.state !== EnemyState.ACTIVE) return;
+    
+    const now = performance.now() / 1000;
+    if (now - this.lastFireTime < this.fireRate) return;
+    
+    // Random chance to fire, higher for dive attacks
+    const firingChance = this.movementPattern === MovementPattern.DIVE ? 0.8 : 0.2;
+    if (Math.random() > firingChance) return;
+    
+    this.lastFireTime = now;
+    
+    // Create a new projectile
+    const projectile = new Projectile(
+      this.x + this.width / 2 - 3,
+      this.y + this.height,
+      6,
+      10,
+      0,
+      150, // Vertical velocity downward
+      '#990000', // Blood red
+      true // Is enemy projectile
+    );
+    
+    this.projectiles.push(projectile);
+    this.soundEngine.playSound(SoundEffect.ENEMY_SHOOT);
+  }
+  
+  /**
+   * Draw the enemy
+   */
+  public draw(renderer: Renderer): void {
+    if (!this.active) return;
+    
+    if (this.state === EnemyState.EXPLODING) {
+      // Draw explosion animation
+      const progress = this.explosionTimer / this.explosionDuration;
+      const radius = this.width / 2 * (1 - progress);
+      
+      // Main explosion
+      renderer.fillCircle(
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        radius * 1.5,
+        `rgba(153, 0, 0, ${1 - progress})` // Blood red explosion
+      );
+      
+      // Particles
+      for (let i = 0; i < 8; i++) {
+        const angle = Math.PI * 2 * (i / 8);
+        const particleDistance = radius * 2;
+        const particleX = this.x + this.width / 2 + Math.cos(angle) * particleDistance;
+        const particleY = this.y + this.height / 2 + Math.sin(angle) * particleDistance;
+        
+        renderer.fillCircle(
+          particleX,
+          particleY,
+          radius / 2,
+          `rgba(153, 0, 0, ${1 - progress})`
+        );
+      }
+    } else if (this.state === EnemyState.TRANSFORMING) {
+      // Draw transformation animation
+      const progress = this.transformationTimer / this.transformationDuration;
+      
+      // Pulsating glow effect
+      const glowSize = this.width * (0.8 + Math.sin(progress * Math.PI * 6) * 0.3);
+      
+      renderer.fillCircle(
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        glowSize / 2,
+        `rgba(153, 0, 0, ${0.7 - progress * 0.3})`
+      );
+      
+      // Draw morphing shape
+      this.drawEnemy(renderer, progress);
+    } else {
+      this.drawEnemy(renderer);
+    }
+    
+    // Draw projectiles
+    for (const projectile of this.projectiles) {
+      projectile.draw(renderer);
+    }
+  }
+  
+  /**
+   * Draw the enemy based on its type
+   */
+  private drawEnemy(renderer: Renderer, transformProgress?: number): void {
+    const frame = this.animationFrame;
+    
+    switch (this.type) {
+      case EnemyType.BASIC_VAMPIRE:
+        // Basic vampire enemy
+        this.drawBasicVampire(renderer, frame);
+        break;
+        
+      case EnemyType.VAMPIRE_BAT:
+        // Vampire bat enemy
+        this.drawVampireBat(renderer, frame);
+        break;
+        
+      case EnemyType.BLOOD_LORD:
+        // Blood lord boss enemy
+        this.drawBloodLord(renderer, frame);
+        break;
+    }
+  }
+  
+  /**
+   * Draw the basic vampire enemy
+   */
+  private drawBasicVampire(renderer: Renderer, frame: number): void {
+    // Colors
+    const bodyColor = '#990000'; // Dark red
+    const capeColor = '#330000'; // Darker red
+    const faceColor = '#EEEEEE'; // Pale white
+    
+    // Body
+    renderer.fillRect(this.x + 8, this.y + 6, 8, 14, bodyColor);
+    
+    // Cape (changes with animation frame)
+    if (frame === 0) {
+      renderer.fillRect(this.x + 4, this.y + 10, 4, 8, capeColor);
+      renderer.fillRect(this.x + 16, this.y + 10, 4, 8, capeColor);
+    } else {
+      renderer.fillRect(this.x + 2, this.y + 8, 6, 10, capeColor);
+      renderer.fillRect(this.x + 16, this.y + 8, 6, 10, capeColor);
+    }
+    
+    // Head
+    renderer.fillRect(this.x + 8, this.y + 2, 8, 6, faceColor);
+    
+    // Eyes
+    renderer.fillRect(this.x + 9, this.y + 4, 2, 2, bodyColor);
+    renderer.fillRect(this.x + 13, this.y + 4, 2, 2, bodyColor);
+  }
+  
+  /**
+   * Draw the vampire bat enemy
+   */
+  private drawVampireBat(renderer: Renderer, frame: number): void {
+    // Colors
+    const bodyColor = '#660066'; // Purple for bat
+    const wingColor = '#440044'; // Darker purple
+    const eyeColor = '#FF0000'; // Red eyes
+    
+    // Body
+    renderer.fillRect(this.x + 10, this.y + 8, 8, 12, bodyColor);
+    
+    // Wings (changes with animation frame)
+    if (frame === 0) {
+      // Wings folded
+      renderer.fillRect(this.x + 4, this.y + 10, 6, 8, wingColor);
+      renderer.fillRect(this.x + 18, this.y + 10, 6, 8, wingColor);
+    } else if (frame === 1) {
+      // Wings partially extended
+      renderer.fillRect(this.x + 2, this.y + 8, 8, 10, wingColor);
+      renderer.fillRect(this.x + 18, this.y + 8, 8, 10, wingColor);
+    } else {
+      // Wings fully extended
+      renderer.fillRect(this.x, this.y + 6, 10, 12, wingColor);
+      renderer.fillRect(this.x + 18, this.y + 6, 10, 12, wingColor);
+    }
+    
+    // Head
+    renderer.fillRect(this.x + 10, this.y + 4, 8, 6, bodyColor);
+    
+    // Ears
+    renderer.fillRect(this.x + 8, this.y, 2, 4, bodyColor);
+    renderer.fillRect(this.x + 18, this.y, 2, 4, bodyColor);
+    
+    // Eyes
+    renderer.fillRect(this.x + 11, this.y + 6, 2, 2, eyeColor);
+    renderer.fillRect(this.x + 15, this.y + 6, 2, 2, eyeColor);
+  }
+  
+  /**
+   * Draw the blood lord boss enemy
+   */
+  private drawBloodLord(renderer: Renderer, frame: number): void {
+    // Colors
+    const bodyColor = '#770000'; // Dark red
+    const capeColor = '#330000'; // Darker red for cape
+    const crownColor = '#DDAA00'; // Gold crown
+    const faceColor = '#EEEEEE'; // Pale white face
+    const eyeColor = '#FF0000'; // Glowing red eyes
+    
+    // Cape background (changes with animation)
+    if (frame === 0) {
+      renderer.fillRect(this.x + 2, this.y + 8, 28, 16, capeColor);
+    } else {
+      renderer.fillRect(this.x, this.y + 6, 32, 18, capeColor);
+    }
+    
+    // Body
+    renderer.fillRect(this.x + 10, this.y + 8, 12, 18, bodyColor);
+    
+    // Head
+    renderer.fillRect(this.x + 10, this.y + 4, 12, 6, faceColor);
+    
+    // Crown
+    renderer.fillRect(this.x + 8, this.y, 16, 4, crownColor);
+    renderer.fillRect(this.x + 8, this.y - 2, 2, 2, crownColor);
+    renderer.fillRect(this.x + 12, this.y - 2, 2, 2, crownColor);
+    renderer.fillRect(this.x + 18, this.y - 2, 2, 2, crownColor);
+    renderer.fillRect(this.x + 22, this.y - 2, 2, 2, crownColor);
+    
+    // Eyes
+    renderer.fillRect(this.x + 12, this.y + 6, 2, 2, eyeColor);
+    renderer.fillRect(this.x + 18, this.y + 6, 2, 2, eyeColor);
+    
+    // Health indicator (glow for second hit remaining)
+    if (this.health > 1) {
+      renderer.fillCircle(
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.width * 0.6,
+        `rgba(255, 0, 0, 0.2)`
+      );
+    }
+  }
+  
+  /**
+   * Handle being hit by a projectile
+   */
+  public hit(): boolean {
+    if (this.state !== EnemyState.ACTIVE) {
+      return false;
+    }
+    
+    this.health--;
+    
+    if (this.health <= 0) {
+      this.state = EnemyState.EXPLODING;
+      this.explosionTimer = 0;
+      this.soundEngine.playSound(
+        this.type === EnemyType.BLOOD_LORD 
+          ? SoundEffect.BOSS_EXPLOSION 
+          : SoundEffect.ENEMY_EXPLOSION
+      );
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Start transformation
+   */
+  public transform(): void {
+    if (this.state !== EnemyState.ACTIVE) {
+      return;
+    }
+    
+    this.state = EnemyState.TRANSFORMING;
+    this.transformationTimer = 0;
+    this.soundEngine.playSound(SoundEffect.VAMPIRE_TRANSFORM);
+  }
+  
+  /**
+   * Complete transformation
+   */
+  private completeTransformation(): void {
+    // Upgrade to next type
+    if (this.type === EnemyType.BASIC_VAMPIRE) {
+      this.type = EnemyType.VAMPIRE_BAT;
+    } else if (this.type === EnemyType.VAMPIRE_BAT) {
+      this.type = EnemyType.BLOOD_LORD;
+    }
+    
+    // Reset state to active
+    this.state = EnemyState.ACTIVE;
+    
+    // Update properties based on new type
+    this.setupType();
+  }
+  
+  /**
+   * Start capturing sequence
+   */
+  public startCapture(playerPosition: {x: number, y: number}): void {
+    if (this.state !== EnemyState.ACTIVE || this.type !== EnemyType.BLOOD_LORD) {
+      return;
+    }
+    
+    this.state = EnemyState.CAPTURING;
+    this.targetPlayer = playerPosition;
+    this.soundEngine.playSound(SoundEffect.VAMPIRE_CAPTURE);
+  }
+  
+  /**
+   * Get the collision rectangle
+   * Implements Collidable interface
+   */
+  public getCollisionRect(): Rect {
+    // Smaller collision area than visual size
+    return {
+      x: this.x + 4,
+      y: this.y + 4,
+      width: this.width - 8,
+      height: this.height - 8
+    };
+  }
+  
+  /**
+   * Check if the enemy is active
+   * Implements Collidable interface
+   */
+  public isActive(): boolean {
+    return this.active;
+  }
+  
+  /**
+   * Get enemy points value
+   */
+  public getPoints(): number {
+    return this.points;
+  }
+  
+  /**
+   * Get enemy projectiles
+   */
+  public getProjectiles(): Projectile[] {
+    return this.projectiles;
+  }
+  
+  /**
+   * Get enemy type
+   */
+  public getType(): EnemyType {
+    return this.type;
+  }
+  
+  /**
+   * Get enemy state
+   */
+  public getState(): EnemyState {
+    return this.state;
+  }
+  
+  /**
+   * Get enemy position
+   */
+  public getPosition(): { x: number, y: number } {
+    return { x: this.x, y: this.y };
+  }
+  
+  /**
+   * Get grid position
+   */
+  public getGridPosition(): EnemyFormationPosition {
+    return this.gridPosition;
+  }
+  
+  /**
+   * Set grid position
+   */
+  public setGridPosition(position: EnemyFormationPosition): void {
+    this.gridPosition = position;
+  }
+}
