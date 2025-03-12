@@ -649,7 +649,7 @@ export class Game {
     if (this.currentBootMessage === this.bootMessages.length - 1) {
       this.renderer.drawText(this.bootMessages[this.bootMessages.length - 1], {
         x: centerX,
-        y: this.height * 0.7 + barHeight + 20,
+        y: this.height * 0.7 + barHeight + 30,
         color: '#00FF00',
         fontSize: 72,
         align: 'center',
@@ -663,7 +663,7 @@ export class Game {
     // Draw licensed text (moved below progress bar)
     this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
       x: centerX,
-      y: this.height * 0.7 + barHeight + 40,
+      y: this.height * 0.7 + barHeight + 85,
       color: '#FF0000',
       fontSize: 36,
       align: 'center',
@@ -704,8 +704,8 @@ export class Game {
   private renderTitleScreen(): void {
     const centerX = this.width / 2;
     
-    // Draw dark red background with gradient
-    this.renderer.fillRect(0, 0, this.width, this.height, '#110000');
+    // Draw vampire-themed background
+    this.drawVampireBackground();
     
     // Draw vertical dark red columns on sides for authentic arcade look
     const columnWidth = this.width * 0.15;
@@ -715,14 +715,6 @@ export class Game {
     // Draw horizontal scanlines for CRT effect
     for (let i = 0; i < this.height; i += 3) {
       this.renderer.fillRect(0, i, this.width, 1, 'rgba(0, 0, 0, 0.1)');
-    }
-    
-    // Draw background stars with pulsing effect
-    for (let i = 0; i < 80; i++) {
-      const starX = Math.sin(this.stateTime * 0.1 + i) * 100 + centerX + (i * 20) % this.width - 100;
-      const starY = Math.cos(this.stateTime * 0.1 + i) * 100 + this.height / 2 + (i * 15) % this.height - 100;
-      const starSize = 1 + Math.sin(this.stateTime * 2 + i) * 1;
-      this.renderer.fillCircle(starX, starY, starSize, '#FFFFFF');
     }
     
     // Draw large background fangs
@@ -738,47 +730,51 @@ export class Game {
     this.renderer.fillRect(centerX + fangSpacing - fangWidth, 50, fangWidth, fangHeight, 'rgba(153, 0, 0, 0.3)');
     this.renderer.fillRect(centerX + fangSpacing - fangWidth / 2, 50, fangWidth / 2, fangHeight, 'rgba(85, 0, 0, 0.3)');
     
-    // Draw blood drips from top of screen
-    for (let i = 0; i < 8; i++) {
-      const x = this.width * (i + 0.5) / 8;
-      const height = 30 + Math.sin(this.stateTime + i) * 20;
-      this.renderer.fillRect(x - 3, 0, 6, height, '#990000');
-    }
-    
-    // Draw title (much larger)
-    const titleY = this.height * 0.15;
-    this.drawLogo(centerX, titleY, 2.5); // Much larger size
-    
-    // Draw decorative vampire bats flying in background
-    for (let i = 0; i < 3; i++) {
-      const batX = (this.width * 0.2) + (this.width * 0.3 * i) + Math.sin(this.stateTime * 0.5 + i) * 50;
-      const batY = this.height * 0.3 + Math.cos(this.stateTime * 0.5 + i) * 30;
-      const batSize = 15 + i * 5;
+    // Draw blood drips from top of screen with enhanced animation
+    for (let i = 0; i < 12; i++) {
+      const x = this.width * (i + 0.5) / 12;
+      const height = 30 + Math.sin(this.stateTime * 0.8 + i * 0.5) * 25;
       
-      // Draw simple bat shape
-      this.renderer.fillRect(batX - batSize/2, batY, batSize, batSize/2, '#660000');
-      this.renderer.fillRect(batX - batSize, batY - batSize/4, batSize/2, batSize/2, '#660000');
-      this.renderer.fillRect(batX + batSize/2, batY - batSize/4, batSize/2, batSize/2, '#660000');
+      // Create gradient effect for blood drips
+      this.renderer.fillRect(x - 3, 0, 6, height, '#990000');
+      
+      // Add droplet at the end of some drips
+      if (i % 2 === 0) {
+        const dropletSize = 4 + Math.sin(this.stateTime * 2 + i) * 2;
+        this.renderer.fillCircle(x, height, dropletSize, '#FF0000');
+      }
     }
     
-    // Draw prompt (blinking with glow effect)
+    // Draw title with enhanced neon effect
+    const titleY = this.height * 0.15;
+    this.drawEnhancedLogo(centerX, titleY, 2.5);
+    
+    // Draw prompt with enhanced neon glow effect
     const promptAlpha = (Math.sin(this.stateTime * 5) + 1) / 2;
     
-    // Create a red box behind the prompt
+    // Create a red box behind the prompt with enhanced styling
     this.renderer.fillRect(centerX - 250, this.height * 0.4 - 30, 500, 60, '#550000');
     this.renderer.strokeRect(centerX - 250, this.height * 0.4 - 30, 500, 60, '#FF0000', 2);
     
-    // Draw glow behind text
-    this.renderer.drawText("PRESS SPACE TO PLAY", {
-      x: centerX,
-      y: this.height * 0.39,
-      color: 'rgba(255, 0, 0, 0.5)',
-      fontSize: 52,
-      align: 'center',
-      alpha: promptAlpha * 0.7,
-      fontFamily: 'Press Start 2P, monospace',
-      pixelated: true
-    });
+    // Add inner border for more depth
+    this.renderer.strokeRect(centerX - 245, this.height * 0.4 - 25, 490, 50, '#880000', 1);
+    
+    // Draw multiple glow layers for text
+    for (let i = 0; i < 3; i++) {
+      const glowSize = 3 - i;
+      const glowAlpha = (0.3 - (i * 0.1)) * promptAlpha;
+      
+      this.renderer.drawText("PRESS SPACE TO PLAY", {
+        x: centerX,
+        y: this.height * 0.39,
+        color: 'rgba(255, 0, 0, ' + glowAlpha + ')',
+        fontSize: 52 + glowSize * 2,
+        align: 'center',
+        alpha: glowAlpha,
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+    }
     
     // Draw main text
     this.renderer.drawText("PRESS SPACE TO PLAY", {
@@ -792,18 +788,53 @@ export class Game {
       pixelated: true
     });
     
-    // Draw high scores section with decorative border
+    // Draw high scores section with enhanced decorative border
     const scoreBoxWidth = 500;
-    const scoreBoxHeight = 250;
+    const scoreBoxHeight = 250; // Increased height for better spacing
     const scoreBoxX = centerX - scoreBoxWidth / 2;
     const scoreBoxY = this.height * 0.55 - 40;
     
-    // Draw score box background
+    // Draw score box background with gradient
     this.renderer.fillRect(scoreBoxX, scoreBoxY, scoreBoxWidth, scoreBoxHeight, 'rgba(0, 0, 0, 0.7)');
-    this.renderer.strokeRect(scoreBoxX, scoreBoxY, scoreBoxWidth, scoreBoxHeight, '#FFAA00', 2);
     
-    // Draw high scores header with arcade-style decoration
+    // Draw enhanced border with double lines and corner decorations
+    this.renderer.strokeRect(scoreBoxX, scoreBoxY, scoreBoxWidth, scoreBoxHeight, '#FFAA00', 2);
+    this.renderer.strokeRect(scoreBoxX + 5, scoreBoxY + 5, scoreBoxWidth - 10, scoreBoxHeight - 10, '#FFAA00', 1);
+    
+    // Add corner decorations
+    const cornerSize = 10;
+    // Top-left corner
+    this.renderer.fillRect(scoreBoxX, scoreBoxY, cornerSize, 2, '#FFAA00');
+    this.renderer.fillRect(scoreBoxX, scoreBoxY, 2, cornerSize, '#FFAA00');
+    // Top-right corner
+    this.renderer.fillRect(scoreBoxX + scoreBoxWidth - cornerSize, scoreBoxY, cornerSize, 2, '#FFAA00');
+    this.renderer.fillRect(scoreBoxX + scoreBoxWidth - 2, scoreBoxY, 2, cornerSize, '#FFAA00');
+    // Bottom-left corner
+    this.renderer.fillRect(scoreBoxX, scoreBoxY + scoreBoxHeight - 2, cornerSize, 2, '#FFAA00');
+    this.renderer.fillRect(scoreBoxX, scoreBoxY + scoreBoxHeight - cornerSize, 2, cornerSize, '#FFAA00');
+    // Bottom-right corner
+    this.renderer.fillRect(scoreBoxX + scoreBoxWidth - cornerSize, scoreBoxY + scoreBoxHeight - 2, cornerSize, 2, '#FFAA00');
+    this.renderer.fillRect(scoreBoxX + scoreBoxWidth - 2, scoreBoxY + scoreBoxHeight - cornerSize, 2, cornerSize, '#FFAA00');
+    
+    // Draw high scores header with enhanced arcade-style decoration
     this.renderer.fillRect(centerX - 200, scoreBoxY + 10, 400, 3, '#FFAA00');
+    
+    // Draw header text with glow effect
+    for (let i = 0; i < 2; i++) {
+      const glowSize = 2 - i;
+      const glowAlpha = 0.3 - (i * 0.15);
+      
+      this.renderer.drawText("HIGH SCORES", {
+        x: centerX,
+        y: scoreBoxY + 30,
+        color: 'rgba(255, 170, 0, ' + glowAlpha + ')',
+        fontSize: 36 + glowSize * 2,
+        align: 'center',
+        alpha: glowAlpha,
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+    }
     
     this.renderer.drawText("HIGH SCORES", {
       x: centerX,
@@ -817,56 +848,86 @@ export class Game {
     
     this.renderer.fillRect(centerX - 200, scoreBoxY + 50, 400, 3, '#FFAA00');
     
-    // Display top 5 scores from our high scores array
+    // Display top 5 scores from our high scores array with enhanced styling
     const displayScores = this.highScores.slice(0, 5);
     
     // Make sure we always show 5 slots even if we have fewer scores
     for (let i = 0; i < 5; i++) {
       const score = i < displayScores.length ? displayScores[i] : { name: '---', score: 0, date: '', wave: 0 };
-      // Display rank
+      const rowY = scoreBoxY + 90 + i * 30;
+      const isHighlighted = Math.floor(this.stateTime * 2) % 5 === i; // Highlight rows sequentially
+      
+      // Draw row highlight for arcade effect
+      if (isHighlighted) {
+        this.renderer.fillRect(scoreBoxX + 20, rowY - 15, scoreBoxWidth - 40, 30, 'rgba(153, 0, 0, 0.2)');
+      }
+      
+      // Display rank with enhanced styling
       this.renderer.drawText(`${i+1}.`, {
         x: scoreBoxX + 80,
-        y: scoreBoxY + 90 + i * 30,
-        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        y: rowY,
+        color: i === 0 ? '#FFFF00' : (isHighlighted ? '#FF9999' : '#FFFFFF'),
         fontSize: 24,
         align: 'right',
         fontFamily: 'Press Start 2P, monospace',
         pixelated: true
       });
       
-      // Display name
+      // Display name with enhanced styling
       this.renderer.drawText(score.name, {
         x: scoreBoxX + 100,
-        y: scoreBoxY + 90 + i * 30,
-        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        y: rowY,
+        color: i === 0 ? '#FFFF00' : (isHighlighted ? '#FF9999' : '#FFFFFF'),
         fontSize: 24,
         align: 'left',
         fontFamily: 'Press Start 2P, monospace',
         pixelated: true
       });
       
-      // Display score
+      // Display score with enhanced styling
       this.renderer.drawText(score.score.toString().padStart(6, '0'), {
         x: scoreBoxX + 250,
-        y: scoreBoxY + 90 + i * 30,
-        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        y: rowY,
+        color: i === 0 ? '#FFFF00' : (isHighlighted ? '#FF9999' : '#FFFFFF'),
         fontSize: 24,
         align: 'right',
         fontFamily: 'Press Start 2P, monospace',
         pixelated: true
       });
       
-      // Display wave
+      // Display wave with enhanced styling
       this.renderer.drawText(`WAVE ${score.wave}`, {
         x: scoreBoxX + 420,
-        y: scoreBoxY + 90 + i * 30,
-        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        y: rowY,
+        color: i === 0 ? '#FFFF00' : (isHighlighted ? '#FF9999' : '#FFFFFF'),
         fontSize: 24,
         align: 'right',
         fontFamily: 'Press Start 2P, monospace',
         pixelated: true
       });
     }
+    
+    // Draw "GLOBAL LEADERBOARD" text to emphasize online nature
+    this.renderer.drawText("GLOBAL LEADERBOARD", {
+      x: centerX,
+      y: scoreBoxY + scoreBoxHeight - 20,
+      color: '#FF5555',
+      fontSize: 20,
+      align: 'center',
+      fontFamily: 'Press Start 2P, monospace',
+      pixelated: true
+    });
+    
+    // Draw "LICENSED BY WEST COAST AI LABS" text at the bottom of the high scores box
+    this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
+      x: centerX,
+      y: scoreBoxY + scoreBoxHeight + 35,
+      color: '#FF0000',
+      fontSize: 24,
+      align: 'center',
+      fontFamily: 'Press Start 2P, monospace',
+      pixelated: true
+    });
     
     // Draw copyright
     this.renderer.drawText("© 2025 WEST COAST AI LABS", {
@@ -878,17 +939,183 @@ export class Game {
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
+  }
+  
+  /**
+   * Draw vampire-themed background
+   */
+  private drawVampireBackground(): void {
+    // Draw dark blood-red gradient background
+    this.renderer.fillRect(0, 0, this.width, this.height, '#110000');
     
-    // Draw "LICENSED BY WEST COAST AI LABS" text at bottom
-    this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
-      x: centerX,
-      y: this.height - 70,
-      color: '#FF0000',
-      fontSize: 24,
-      align: 'center',
+    // Draw a full moon
+    const moonX = this.width * 0.8;
+    const moonY = this.height * 0.2;
+    const moonSize = 60 + Math.sin(this.stateTime) * 3;
+    
+    // Moon glow
+    this.renderer.fillCircle(
+      moonX,
+      moonY,
+      moonSize + 20,
+      'rgba(255, 0, 0, 0.1)'
+    );
+    
+    this.renderer.fillCircle(
+      moonX,
+      moonY,
+      moonSize + 10,
+      'rgba(255, 0, 0, 0.2)'
+    );
+    
+    // Moon core
+    this.renderer.fillCircle(
+      moonX,
+      moonY,
+      moonSize,
+      'rgba(255, 200, 200, 0.8)'
+    );
+    
+    // Draw distant castle silhouette
+    const castleWidth = 300;
+    const castleHeight = 150;
+    const castleX = this.width / 2 - castleWidth / 2;
+    const castleY = this.height * 0.3;
+    
+    // Main castle body
+    this.renderer.fillRect(
+      castleX,
+      castleY,
+      castleWidth,
+      castleHeight,
+      'rgba(30, 0, 0, 0.5)'
+    );
+    
+    // Castle towers
+    const towerWidth = 40;
+    const towerHeight = 80;
+    
+    // Left tower
+    this.renderer.fillRect(
+      castleX - towerWidth / 2,
+      castleY - towerHeight / 2,
+      towerWidth,
+      towerHeight,
+      'rgba(30, 0, 0, 0.5)'
+    );
+    
+    // Right tower
+    this.renderer.fillRect(
+      castleX + castleWidth - towerWidth / 2,
+      castleY - towerHeight / 2,
+      towerWidth,
+      towerHeight,
+      'rgba(30, 0, 0, 0.5)'
+    );
+    
+    // Center tower
+    this.renderer.fillRect(
+      castleX + castleWidth / 2 - towerWidth / 2,
+      castleY - towerHeight,
+      towerWidth,
+      towerHeight,
+      'rgba(30, 0, 0, 0.5)'
+    );
+  }
+  
+  /**
+   * Draw enhanced logo with neon effect
+   */
+  private drawEnhancedLogo(x: number, y: number, scale: number = 1): void {
+    // Logo colors
+    const mainColor = '#FF0033'; // Brighter red
+    const glowColor = 'rgba(255, 0, 51, 0.7)'; // Brighter glow
+    const outlineColor = '#550000'; // Dark red outline
+    const highlightColor = '#FF3366'; // Bright pink highlight
+    
+    // Logo dimensions
+    const logoWidth = 480 * scale;
+    const logoHeight = 180 * scale;
+    
+    // Draw multiple glow layers
+    for (let i = 0; i < 3; i++) {
+      const glowSize = (3 - i) * 4;
+      const glowAlpha = 0.3 - (i * 0.1);
+      
+      this.renderer.drawText("VALAXY", {
+        x: x,
+        y: y,
+        color: `rgba(255, 0, 51, ${glowAlpha})`,
+        fontSize: (96 + glowSize) * scale,
+        fontFamily: 'Press Start 2P, monospace',
+        align: 'center',
+        pixelated: true,
+        alpha: glowAlpha
+      });
+    }
+    
+    // Draw logo shadow
+    this.renderer.drawText("VALAXY", {
+      x: x + 4 * scale,
+      y: y + 4 * scale,
+      color: 'rgba(0, 0, 0, 0.5)',
+      fontSize: 96 * scale,
       fontFamily: 'Press Start 2P, monospace',
+      align: 'center',
       pixelated: true
     });
+    
+    // "VALAXY" text (pixelated style)
+    this.renderer.drawText("VALAXY", {
+      x: x,
+      y: y,
+      color: mainColor,
+      fontSize: 96 * scale,
+      fontFamily: 'Press Start 2P, monospace',
+      align: 'center',
+      pixelated: true
+    });
+    
+    // Add highlight to the logo text
+    this.renderer.drawText("VALAXY", {
+      x: x - 2 * scale,
+      y: y - 2 * scale,
+      color: highlightColor,
+      fontSize: 96 * scale,
+      fontFamily: 'Press Start 2P, monospace',
+      align: 'center',
+      pixelated: true,
+      alpha: 0.2
+    });
+    
+    // Draw larger vampire fangs under the logo
+    const fangWidth = 25 * scale;
+    const fangHeight = 40 * scale;
+    const fangSpacing = 40 * scale;
+    const fangY = y + 100 * scale;
+    
+    // Left fang
+    this.renderer.fillRect(x - fangSpacing, fangY, fangWidth, fangHeight, mainColor);
+    this.renderer.fillRect(x - fangSpacing, fangY, fangWidth / 2, fangHeight, outlineColor);
+    
+    // Right fang
+    this.renderer.fillRect(x + fangSpacing - fangWidth, fangY, fangWidth, fangHeight, mainColor);
+    this.renderer.fillRect(x + fangSpacing - fangWidth / 2, fangY, fangWidth / 2, fangHeight, outlineColor);
+    
+    // Add blood drips from fangs with animation
+    const dripsCount = 3;
+    for (let i = 0; i < dripsCount; i++) {
+      const drip1X = x - fangSpacing + fangWidth / 2 - (5 * scale) + (i * 5 * scale);
+      const drip2X = x + fangSpacing - fangWidth / 2 - (5 * scale) + (i * 5 * scale);
+      const dripLength = (10 + Math.sin(this.stateTime * 2 + i) * 8) * scale;
+      
+      this.renderer.fillRect(drip1X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
+      this.renderer.fillRect(drip2X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
+      
+      // Add droplets at the end of drips
+      this.renderer.fillCircle(drip1X + (1.5 * scale), fangY + fangHeight + dripLength, 2 * scale, highlightColor);
+      this.renderer.fillCircle(drip2X + (1.5 * scale), fangY + fangHeight + dripLength, 2 * scale, highlightColor);
+    }
   }
   
   /**

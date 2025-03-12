@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { kv } from '@vercel/kv';
 
 // Define the high score interface
 interface HighScore {
@@ -19,13 +20,58 @@ let highScoresCache: HighScore[] = [
 // Maximum number of high scores to keep
 const MAX_HIGH_SCORES = 5;
 
+// Key for storing high scores in Vercel KV
+const KV_HIGH_SCORES_KEY = 'valaxy:highscores';
+
+// Check if Vercel KV is properly configured
+const isKVConfigured = (): boolean => {
+  try {
+    // Check if KV is defined and has the required methods
+    return typeof kv !== 'undefined' &&
+           typeof kv.get === 'function' &&
+           typeof kv.set === 'function';
+  } catch (error) {
+    console.error('Error checking KV configuration:', error);
+    return false;
+  }
+};
+
 // Get high scores
 const getHighScores = async (): Promise<HighScore[]> => {
   try {
+    // Try to use Vercel KV if configured
+    if (isKVConfigured()) {
+      try {
+        const scores = await kv.get<HighScore[]>(KV_HIGH_SCORES_KEY);
+        
+        if (scores && Array.isArray(scores) && scores.length > 0) {
+          // Update cache with KV data
+          highScoresCache = scores;
+          return scores;
+        }
+        
+        // If no scores in KV, initialize with current cache
+        await kv.set(KV_HIGH_SCORES_KEY, highScoresCache);
+        return highScoresCache;
+      } catch (kvError) {
+        console.error('Error accessing Vercel KV:', kvError);
+        // Fall through to other methods
+      }
+    }
+    
     // Try to get high scores from environment variable
     const envScores = process.env.VALAXY_HIGH_SCORES;
     if (envScores) {
-      return JSON.parse(envScores);
+      try {
+        const parsedScores = JSON.parse(envScores);
+        if (Array.isArray(parsedScores) && parsedScores.length > 0) {
+          // Update cache with env data
+          highScoresCache = parsedScores;
+          return parsedScores;
+        }
+      } catch (envError) {
+        console.error('Error parsing high scores from env:', envError);
+      }
     }
     
     // Return the in-memory cache as fallback
@@ -47,9 +93,20 @@ const saveHighScores = async (scores: HighScore[]): Promise<boolean> => {
     // Update the in-memory cache
     highScoresCache = topScores;
     
-    // In a production environment, you would save to a database here
-    // For example, using Vercel KV, MongoDB, etc.
+    // Try to save to Vercel KV if configured
+    if (isKVConfigured()) {
+      try {
+        await kv.set(KV_HIGH_SCORES_KEY, topScores);
+        console.log('High scores saved to Vercel KV');
+      } catch (kvError) {
+        console.error('Error saving to Vercel KV:', kvError);
+        // Continue to try other methods
+      }
+    } else {
+      console.log('Vercel KV not configured, using in-memory cache only');
+    }
     
+    // Always return true since we've at least updated the in-memory cache
     return true;
   } catch (error) {
     console.error('Error saving high scores:', error);
