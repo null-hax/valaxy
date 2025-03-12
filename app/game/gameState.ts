@@ -717,33 +717,7 @@ export class Game {
       this.renderer.fillRect(0, i, this.width, 1, 'rgba(0, 0, 0, 0.1)');
     }
     
-    // Draw large background fangs
-    const fangWidth = 120;
-    const fangHeight = 350;
-    const fangSpacing = 250;
-    
-    // Left fang (background)
-    this.renderer.fillRect(centerX - fangSpacing, 50, fangWidth, fangHeight, 'rgba(153, 0, 0, 0.3)');
-    this.renderer.fillRect(centerX - fangSpacing, 50, fangWidth / 2, fangHeight, 'rgba(85, 0, 0, 0.3)');
-    
-    // Right fang (background)
-    this.renderer.fillRect(centerX + fangSpacing - fangWidth, 50, fangWidth, fangHeight, 'rgba(153, 0, 0, 0.3)');
-    this.renderer.fillRect(centerX + fangSpacing - fangWidth / 2, 50, fangWidth / 2, fangHeight, 'rgba(85, 0, 0, 0.3)');
-    
-    // Draw blood drips from top of screen with enhanced animation
-    for (let i = 0; i < 12; i++) {
-      const x = this.width * (i + 0.5) / 12;
-      const height = 30 + Math.sin(this.stateTime * 0.8 + i * 0.5) * 25;
-      
-      // Create gradient effect for blood drips
-      this.renderer.fillRect(x - 3, 0, 6, height, '#990000');
-      
-      // Add droplet at the end of some drips
-      if (i % 2 === 0) {
-        const dropletSize = 4 + Math.sin(this.stateTime * 2 + i) * 2;
-        this.renderer.fillCircle(x, height, dropletSize, '#FF0000');
-      }
-    }
+    // Removed fangs and blood drips as requested
     
     // Draw title with enhanced neon effect
     const titleY = this.height * 0.15;
@@ -976,51 +950,168 @@ export class Game {
       'rgba(255, 200, 200, 0.8)'
     );
     
-    // Draw distant castle silhouette
+    // Draw detailed castle silhouette
     const castleWidth = 300;
     const castleHeight = 150;
     const castleX = this.width / 2 - castleWidth / 2;
     const castleY = this.height * 0.3;
     
-    // Main castle body
+    // Castle base with gradient for depth
+    const baseColor = 'rgba(40, 0, 0, 0.7)';
+    const shadowColor = 'rgba(20, 0, 0, 0.8)';
+    
+    // Main castle body with more detail
     this.renderer.fillRect(
       castleX,
       castleY,
       castleWidth,
       castleHeight,
-      'rgba(30, 0, 0, 0.5)'
+      baseColor
     );
     
-    // Castle towers
+    // Castle wall details - crenellations along the top
+    const creWidth = 15;
+    const creHeight = 10;
+    const creCount = Math.floor(castleWidth / (creWidth * 2));
+    
+    for (let i = 0; i < creCount; i++) {
+      this.renderer.fillRect(
+        castleX + (i * creWidth * 2) + creWidth/2,
+        castleY - creHeight,
+        creWidth,
+        creHeight,
+        baseColor
+      );
+    }
+    
+    // Castle towers with more detail
     const towerWidth = 40;
     const towerHeight = 80;
+    const towerColor = 'rgba(50, 0, 0, 0.8)';
     
-    // Left tower
+    // Left tower with windows
     this.renderer.fillRect(
       castleX - towerWidth / 2,
       castleY - towerHeight / 2,
       towerWidth,
       towerHeight,
-      'rgba(30, 0, 0, 0.5)'
+      towerColor
     );
     
-    // Right tower
+    // Tower top
+    this.renderer.fillRect(
+      castleX - towerWidth / 2 - 5,
+      castleY - towerHeight / 2,
+      towerWidth + 10,
+      10,
+      shadowColor
+    );
+    
+    // Tower windows
+    this.renderer.fillRect(
+      castleX - towerWidth / 2 + 10,
+      castleY - towerHeight / 2 + 20,
+      towerWidth - 20,
+      15,
+      'rgba(255, 200, 100, 0.2)'
+    );
+    
+    // Right tower with windows
     this.renderer.fillRect(
       castleX + castleWidth - towerWidth / 2,
       castleY - towerHeight / 2,
       towerWidth,
       towerHeight,
-      'rgba(30, 0, 0, 0.5)'
+      towerColor
     );
     
-    // Center tower
+    // Tower top
+    this.renderer.fillRect(
+      castleX + castleWidth - towerWidth / 2 - 5,
+      castleY - towerHeight / 2,
+      towerWidth + 10,
+      10,
+      shadowColor
+    );
+    
+    // Tower windows
+    this.renderer.fillRect(
+      castleX + castleWidth - towerWidth / 2 + 10,
+      castleY - towerHeight / 2 + 20,
+      towerWidth - 20,
+      15,
+      'rgba(255, 200, 100, 0.2)'
+    );
+    
+    // Center tower with more detail
     this.renderer.fillRect(
       castleX + castleWidth / 2 - towerWidth / 2,
       castleY - towerHeight,
       towerWidth,
       towerHeight,
-      'rgba(30, 0, 0, 0.5)'
+      towerColor
     );
+    
+    // Center tower top
+    this.renderer.fillRect(
+      castleX + castleWidth / 2 - towerWidth / 2 - 5,
+      castleY - towerHeight,
+      towerWidth + 10,
+      10,
+      shadowColor
+    );
+    
+    // Center tower windows
+    this.renderer.fillRect(
+      castleX + castleWidth / 2 - towerWidth / 2 + 10,
+      castleY - towerHeight + 20,
+      towerWidth - 20,
+      15,
+      'rgba(255, 200, 100, 0.2)'
+    );
+    
+    // Castle gate
+    const gateWidth = 40;
+    const gateHeight = 60;
+    this.renderer.fillRect(
+      castleX + castleWidth / 2 - gateWidth / 2,
+      castleY + castleHeight - gateHeight,
+      gateWidth,
+      gateHeight,
+      'rgba(10, 0, 0, 0.9)'
+    );
+    
+    // Gate arch
+    this.renderer.fillRect(
+      castleX + castleWidth / 2 - gateWidth / 2 - 5,
+      castleY + castleHeight - gateHeight,
+      gateWidth + 10,
+      10,
+      shadowColor
+    );
+    
+    // Windows on castle body
+    const windowSize = 12;
+    const windowSpacing = 40;
+    const windowRows = 2;
+    const windowsPerRow = Math.floor((castleWidth - 100) / windowSpacing);
+    
+    for (let row = 0; row < windowRows; row++) {
+      for (let i = 0; i < windowsPerRow; i++) {
+        // Skip windows where the gate is
+        if (row === 1 && i >= Math.floor(windowsPerRow / 2) - 1 && i <= Math.floor(windowsPerRow / 2)) {
+          continue;
+        }
+        
+        this.renderer.fillRect(
+          castleX + 50 + (i * windowSpacing),
+          castleY + 30 + (row * 50),
+          windowSize,
+          windowSize,
+          'rgba(255, 200, 100, 0.2)'
+        );
+      }
+    }
   }
   
   /**
@@ -1088,34 +1179,7 @@ export class Game {
       alpha: 0.2
     });
     
-    // Draw larger vampire fangs under the logo
-    const fangWidth = 25 * scale;
-    const fangHeight = 40 * scale;
-    const fangSpacing = 40 * scale;
-    const fangY = y + 100 * scale;
-    
-    // Left fang
-    this.renderer.fillRect(x - fangSpacing, fangY, fangWidth, fangHeight, mainColor);
-    this.renderer.fillRect(x - fangSpacing, fangY, fangWidth / 2, fangHeight, outlineColor);
-    
-    // Right fang
-    this.renderer.fillRect(x + fangSpacing - fangWidth, fangY, fangWidth, fangHeight, mainColor);
-    this.renderer.fillRect(x + fangSpacing - fangWidth / 2, fangY, fangWidth / 2, fangHeight, outlineColor);
-    
-    // Add blood drips from fangs with animation
-    const dripsCount = 3;
-    for (let i = 0; i < dripsCount; i++) {
-      const drip1X = x - fangSpacing + fangWidth / 2 - (5 * scale) + (i * 5 * scale);
-      const drip2X = x + fangSpacing - fangWidth / 2 - (5 * scale) + (i * 5 * scale);
-      const dripLength = (10 + Math.sin(this.stateTime * 2 + i) * 8) * scale;
-      
-      this.renderer.fillRect(drip1X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
-      this.renderer.fillRect(drip2X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
-      
-      // Add droplets at the end of drips
-      this.renderer.fillCircle(drip1X + (1.5 * scale), fangY + fangHeight + dripLength, 2 * scale, highlightColor);
-      this.renderer.fillCircle(drip2X + (1.5 * scale), fangY + fangHeight + dripLength, 2 * scale, highlightColor);
-    }
+    // Removed fangs and blood drips as requested
   }
   
   /**
@@ -1380,30 +1444,7 @@ export class Game {
       alpha: 0.1
     });
     
-    // Draw larger vampire fangs under the logo
-    const fangWidth = 25 * scale;
-    const fangHeight = 40 * scale;
-    const fangSpacing = 40 * scale;
-    const fangY = y + 100 * scale;
-    
-    // Left fang
-    this.renderer.fillRect(x - fangSpacing, fangY, fangWidth, fangHeight, mainColor);
-    this.renderer.fillRect(x - fangSpacing, fangY, fangWidth / 2, fangHeight, outlineColor);
-    
-    // Right fang
-    this.renderer.fillRect(x + fangSpacing - fangWidth, fangY, fangWidth, fangHeight, mainColor);
-    this.renderer.fillRect(x + fangSpacing - fangWidth / 2, fangY, fangWidth / 2, fangHeight, outlineColor);
-    
-    // Add blood drips from fangs
-    const dripsCount = 3;
-    for (let i = 0; i < dripsCount; i++) {
-      const drip1X = x - fangSpacing + fangWidth / 2 - (5 * scale) + (i * 5 * scale);
-      const drip2X = x + fangSpacing - fangWidth / 2 - (5 * scale) + (i * 5 * scale);
-      const dripLength = (10 + Math.sin(this.stateTime * 2 + i) * 5) * scale;
-      
-      this.renderer.fillRect(drip1X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
-      this.renderer.fillRect(drip2X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
-    }
+    // Removed fangs and blood drips as requested
   }
   
   /**
