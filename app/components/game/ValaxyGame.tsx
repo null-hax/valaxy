@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Game } from '../../game/gameState';
+import { KeyState } from '../../game/engine/input';
 import '../../globals.css';
 
 // Use a more reasonable base resolution that will scale better
@@ -13,8 +14,13 @@ export default function ValaxyGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Game | null>(null);
+  const joystickRef = useRef<HTMLDivElement>(null);
+  const joystickHandleRef = useRef<HTMLDivElement>(null);
+  const fireButtonRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [dimensions, setDimensions] = useState({ width: BASE_WIDTH, height: BASE_HEIGHT });
+  const [joystickActive, setJoystickActive] = useState(false);
+  const [joystickPosition, setJoystickPosition] = useState({ x: 0, y: 0 });
   
   // Handle window resize to maintain aspect ratio
   const updateDimensions = () => {
@@ -71,8 +77,136 @@ export default function ValaxyGame() {
     try {
       await gameRef.current.init();
       setIsInitialized(true);
+      
+      // Set up mobile controls after game is initialized
+      setupMobileControls();
     } catch (error) {
       console.error("Failed to initialize game:", error);
+    }
+  };
+  
+  // Add space key listener for game start
+  useEffect(() => {
+    if (isInitialized) return;
+    
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !isInitialized && gameRef.current) {
+        handleInitGame();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyPress);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [isInitialized]);
+  
+  // Set up mobile control event handlers
+  const setupMobileControls = () => {
+    if (!gameRef.current) return;
+    
+    const joystickArea = joystickRef.current;
+    const joystickHandle = joystickHandleRef.current;
+    const fireButton = fireButtonRef.current;
+    
+    if (!joystickArea || !joystickHandle || !fireButton) return;
+    
+    // Joystick touch start
+    joystickArea.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      setJoystickActive(true);
+      
+      const touch = e.touches[0];
+      const rect = joystickArea.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      handleJoystickMove(touch.clientX - centerX, touch.clientY - centerY);
+    });
+    
+    // Joystick touch move
+    joystickArea.addEventListener('touchmove', (e) => {
+      if (!joystickActive) return;
+      e.preventDefault();
+      
+      const touch = e.touches[0];
+      const rect = joystickArea.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      
+      handleJoystickMove(touch.clientX - centerX, touch.clientY - centerY);
+    });
+    
+    // Joystick touch end
+    joystickArea.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      setJoystickActive(false);
+      setJoystickPosition({ x: 0, y: 0 });
+      
+      // Reset joystick handle position
+      if (joystickHandle) {
+        joystickHandle.style.transform = `translate(0px, 0px)`;
+      }
+      
+      // Reset movement in the game
+      if (gameRef.current) {
+        gameRef.current.getInputHandler().setVirtualKey('left', KeyState.RELEASED);
+        gameRef.current.getInputHandler().setVirtualKey('right', KeyState.RELEASED);
+      }
+    });
+    
+    // Fire button touch events
+    fireButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (gameRef.current) {
+        gameRef.current.getInputHandler().setVirtualKey('fire', KeyState.PRESSED);
+      }
+    });
+    
+    fireButton.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      if (gameRef.current) {
+        gameRef.current.getInputHandler().setVirtualKey('fire', KeyState.RELEASED);
+      }
+    });
+  };
+  
+  // Handle joystick movement
+  const handleJoystickMove = (deltaX: number, deltaY: number) => {
+    // Calculate distance from center
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    const maxDistance = 40; // Maximum joystick movement radius
+    
+    // Normalize and limit movement
+    let normX = deltaX / distance;
+    let normY = deltaY / distance;
+    
+    const actualDistance = Math.min(distance, maxDistance);
+    const moveX = normX * actualDistance;
+    const moveY = normY * actualDistance;
+    
+    // Update joystick position
+    setJoystickPosition({ x: moveX, y: moveY });
+    
+    // Move joystick handle
+    if (joystickHandleRef.current) {
+      joystickHandleRef.current.style.transform = `translate(${moveX}px, ${moveY}px)`;
+    }
+    
+    // Send input to game
+    if (gameRef.current) {
+      // We only care about horizontal movement for this game
+      if (moveX < -10) {
+        gameRef.current.getInputHandler().setVirtualKey('left', KeyState.PRESSED);
+        gameRef.current.getInputHandler().setVirtualKey('right', KeyState.RELEASED);
+      } else if (moveX > 10) {
+        gameRef.current.getInputHandler().setVirtualKey('right', KeyState.PRESSED);
+        gameRef.current.getInputHandler().setVirtualKey('left', KeyState.RELEASED);
+      } else {
+        gameRef.current.getInputHandler().setVirtualKey('left', KeyState.RELEASED);
+        gameRef.current.getInputHandler().setVirtualKey('right', KeyState.RELEASED);
+      }
     }
   };
   
@@ -80,12 +214,14 @@ export default function ValaxyGame() {
     <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-black">
       {!isInitialized && (
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center z-10 cursor-pointer title-screen-slide"
-          onClick={handleInitGame}
+          className="absolute inset-0 flex flex-col items-center justify-center z-10 title-screen-slide"
         >
           <div className="text-red-700 text-9xl font-extrabold mb-10 vampire-glow">VALAXY</div>
-          <div className="text-white text-5xl mt-8 arcade-button py-5 px-16 hover:bg-red-900">
-            PLAY NOW
+          <div
+            className="text-white text-5xl mt-8 arcade-button py-5 px-16 hover:bg-red-900 cursor-pointer"
+            onClick={handleInitGame}
+          >
+            PRESS SPACE TO PLAY
           </div>
           <div className="mt-16 text-gray-200 text-3xl pixel-text">©2025 WEST COAST AI LABS</div>
           <div className="mt-4 text-red-600 text-xl pixel-text">LICENSED BY WEST COAST AI LABS</div>
@@ -115,20 +251,28 @@ export default function ValaxyGame() {
           }}
         />
         
-        {/* Game controls help */}
-        <div className="fixed bottom-8 left-8 text-white text-3xl z-20">
-          <div>Controls: Arrow Keys or WASD to move</div>
-          <div>Space or Up Arrow to fire</div>
-        </div>
+        {/* No controls help - removed as requested */}
       </div>
       
       {/* Mobile controls overlay - will be visible on touch devices */}
-      <div className="lg:hidden absolute bottom-0 left-0 right-0 h-32 flex items-center justify-between px-4">
-        <div className="touch-none w-24 h-24 bg-gray-800 bg-opacity-40 rounded-full flex items-center justify-center">
-          {/* D-pad direction controls here */}
+      <div className="lg:hidden absolute bottom-0 left-0 right-0 h-32 flex items-center justify-between px-8 z-30">
+        {/* Virtual joystick */}
+        <div
+          ref={joystickRef}
+          className="virtual-joystick touch-none w-28 h-28 flex items-center justify-center"
+        >
+          <div
+            ref={joystickHandleRef}
+            className="virtual-joystick-handle"
+          ></div>
         </div>
-        <div className="touch-none w-24 h-24 bg-gray-800 bg-opacity-40 rounded-full flex items-center justify-center">
-          {/* Fire button here */}
+        
+        {/* Fire button */}
+        <div
+          ref={fireButtonRef}
+          className="fire-button touch-none w-28 h-28 flex items-center justify-center"
+        >
+          <span className="text-2xl font-bold">FIRE</span>
         </div>
       </div>
     </div>

@@ -48,7 +48,7 @@ export class SoundEngine {
     if (this.isInitialized) return;
     
     try {
-      // Start the Tone.js audio context
+      // Start the Tone.js audio context with user gesture
       await Tone.start();
       
       // Create various sound effects
@@ -57,8 +57,20 @@ export class SoundEngine {
       // Create background music
       this.createBackgroundMusic();
       
+      // Set volume to ensure it's audible
+      this.masterVolume.volume.value = -10;
+      
+      // Force resume audio context
+      await Tone.context.resume();
+      
+      // Play a silent sound to ensure audio context is running
+      const silentOsc = new Tone.Oscillator().toDestination();
+      silentOsc.volume.value = -100; // Essentially silent
+      silentOsc.start();
+      silentOsc.stop("+0.1"); // Stop after 100ms
+      
       this.isInitialized = true;
-      console.log("Sound engine initialized");
+      console.log("Sound engine initialized, context state:", Tone.context.state);
     } catch (error) {
       console.error("Failed to initialize sound engine:", error);
     }
@@ -329,11 +341,16 @@ export class SoundEngine {
       while (this.soundQueue.length > 0) {
         const { sound } = this.soundQueue.shift()!;
         
+        // Make sure audio context is running
+        if (Tone.context.state !== 'running') {
+          await Tone.context.resume();
+        }
+        
         // Play the sound with current time
         this.playSoundImmediately(sound);
         
-        // Small delay between processing queue items
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Increased delay between processing queue items to prevent timing conflicts
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (error) {
       console.error("Error processing sound queue:", error);
@@ -347,8 +364,13 @@ export class SoundEngine {
     if (!synth) return;
 
     try {
-      // Get current time for each sound - fixes the "Start time must be strictly greater" error
-      const now = Tone.now();
+      // Make sure audio context is running
+      if (Tone.context.state !== 'running') {
+        Tone.context.resume();
+      }
+      
+      // Get current time for each sound with a larger increment to ensure uniqueness
+      const now = Tone.now() + Math.random() * 0.05;
       
       // Play different sounds based on the effect type
       switch (sound) {
@@ -362,8 +384,6 @@ export class SoundEngine {
 
         case SoundEffect.PLAYER_EXPLOSION:
           (synth as Tone.Synth).triggerAttackRelease('C2', '8n', now);
-          (synth as Tone.Synth).triggerAttackRelease('A1', '8n', now + 0.1);
-          (synth as Tone.Synth).triggerAttackRelease('F1', '8n', now + 0.2);
           break;
 
         case SoundEffect.ENEMY_EXPLOSION:
@@ -375,19 +395,11 @@ export class SoundEngine {
           break;
 
         case SoundEffect.LEVEL_COMPLETE:
-          const levelNotes = ['C4', 'E4', 'G4', 'C5'];
-          levelNotes.forEach((note, i) => {
-            const time = now + (i * 0.15);
-            (synth as Tone.Synth).triggerAttackRelease(note, '8n', time);
-          });
+          (synth as Tone.Synth).triggerAttackRelease('C4', '8n', now);
           break;
 
         case SoundEffect.GAME_OVER:
-          const gameOverNotes = ['C4', 'G3', 'E3', 'C3'];
-          gameOverNotes.forEach((note, i) => {
-            const time = now + (i * 0.3);
-            (synth as Tone.Synth).triggerAttackRelease(note, '4n', time);
-          });
+          (synth as Tone.Synth).triggerAttackRelease('C4', '4n', now);
           break;
 
         case SoundEffect.MENU_SELECT:
@@ -400,27 +412,15 @@ export class SoundEngine {
 
         case SoundEffect.COIN_INSERT:
           (synth as Tone.MetalSynth).triggerAttackRelease('32n', now);
-          (synth as Tone.MetalSynth).triggerAttackRelease('16n', now + 0.1);
           break;
 
         case SoundEffect.GAME_START:
-          const startNotes = ['C4', 'E4', 'G4', 'C5', 'E5'];
-          startNotes.forEach((note, i) => {
-            const time = now + (i * 0.1);
-            (synth as Tone.PolySynth).triggerAttackRelease(note, '8n', time);
-          });
+          (synth as Tone.PolySynth).triggerAttackRelease('C4', '8n', now);
           break;
 
         case SoundEffect.POWER_UP:
-          // Glissando effect using proper scheduling
-          for (let i = 0; i < 10; i++) {
-            const freq = 220 * Math.pow(2, i / 10);
-            const time = now + (i * 0.03);
-            Tone.Draw.schedule(() => {
-              (synth as Tone.Synth).frequency.value = freq;
-            }, time);
-            (synth as Tone.Synth).triggerAttackRelease('32n', time);
-          }
+          // Simplified power-up sound to avoid timing issues
+          (synth as Tone.Synth).triggerAttackRelease('C5', '16n', now);
           break;
 
         case SoundEffect.VAMPIRE_CAPTURE:

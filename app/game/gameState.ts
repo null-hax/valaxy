@@ -4,7 +4,7 @@
  */
 
 import { GameLoop } from './engine/gameLoop';
-import { InputHandler, InputState } from './engine/input';
+import { InputHandler, InputState, KeyState } from './engine/input';
 import { Renderer } from './engine/renderer';
 import { CollisionSystem } from './engine/collision';
 import { SoundEngine, SoundEffect } from './sounds/soundEngine';
@@ -12,6 +12,7 @@ import { Player } from './entities/player';
 import { FormationManager } from './entities/formation';
 import { Enemy, EnemyState } from './entities/enemies';
 import { Projectile } from './entities/projectiles';
+import { PowerUpManager, PowerUpType, PowerUp } from './entities/powerups';
 
 // Game states
 export enum GameState {
@@ -45,6 +46,7 @@ export class Game {
   // Game entities
   private player: Player;
   private formationManager: FormationManager;
+  private powerUpManager: PowerUpManager;
   private stars: Star[] = [];
   
   // Game state
@@ -89,6 +91,7 @@ export class Game {
     // Initialize game entities - only create what's needed for boot screen initially
     this.player = new Player(this.soundEngine, width, height);
     this.formationManager = new FormationManager(this.soundEngine, width, height);
+    this.powerUpManager = new PowerUpManager(this.soundEngine, width, height);
     
     // Create a smaller number of stars for better performance
     this.createStars(40);
@@ -260,6 +263,9 @@ export class Game {
     // Update formation
     this.formationManager.update(deltaTime, this.player.getPosition());
     
+    // Update power-ups
+    this.powerUpManager.update(deltaTime);
+    
     // Collision detection
     this.handleCollisions();
     
@@ -285,6 +291,7 @@ export class Game {
   private handleCollisions(): void {
     const enemies = this.formationManager.getEnemies();
     const playerProjectiles = this.player.getProjectiles();
+    const powerUps = this.powerUpManager.getPowerUps();
     
     // Player projectiles vs enemies
     const projectileEnemyCollisions = CollisionSystem.detectGroupCollisions(
@@ -299,10 +306,34 @@ export class Game {
       for (const enemy of hitEnemies) {
         if (enemy.hit()) {
           // Enemy was destroyed
-          this.score += enemy.getPoints();
-          this.player.addScore(enemy.getPoints());
+          const points = enemy.getPoints();
+          this.score += points;
+          this.player.addScore(points);
+          
+          // Chance to spawn a power-up at enemy position
+          const enemyPos = enemy.getPosition();
+          this.powerUpManager.spawnPowerUpAtPosition(enemyPos.x, enemyPos.y, points);
         }
       }
+    }
+    
+    // Player vs power-ups
+    const playerPowerUpCollisions = CollisionSystem.detectCollisions(
+      this.player,
+      powerUps
+    );
+    
+    // Handle power-up collection
+    for (const powerUp of playerPowerUpCollisions) {
+      const powerUpType = powerUp.getType();
+      this.player.activatePowerUp(powerUpType);
+      
+      // Special handling for garlic area attack
+      if (powerUpType === PowerUpType.GARLIC) {
+        this.activateGarlicAreaAttack();
+      }
+      
+      powerUp.activate(); // This will deactivate the power-up
     }
     
     // Enemy projectiles vs player
@@ -347,6 +378,44 @@ export class Game {
   }
   
   /**
+   * Activate garlic area attack (damages all on-screen enemies)
+   */
+  private activateGarlicAreaAttack(): void {
+    const enemies = this.formationManager.getEnemies();
+    let hitCount = 0;
+    
+    // Damage all enemies on screen
+    for (const enemy of enemies) {
+      if (enemy.hit()) {
+        // Enemy was destroyed
+        const points = enemy.getPoints();
+        this.score += points;
+        this.player.addScore(points);
+        hitCount++;
+      }
+    }
+    
+    // Visual effect for area attack
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+    
+    // Create expanding circle effect
+    for (let i = 0; i < 20; i++) {
+      setTimeout(() => {
+        if (this.state !== GameState.PLAYING) return;
+        
+        const radius = i * 20;
+        this.renderer.fillCircle(
+          centerX,
+          centerY,
+          radius,
+          `rgba(255, 255, 255, ${0.5 - i * 0.025})`
+        );
+      }, i * 50);
+    }
+  }
+  
+  /**
    * Update level complete state
    */
   private updateLevelComplete(deltaTime: number, inputState: InputState): void {
@@ -383,6 +452,10 @@ export class Game {
   private nameEntryPosition: number = 0;
   private readonly MAX_NAME_LENGTH: number = 3;
   private readonly ALLOWED_CHARS: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  private nameEntryDebounce: number = 0;
+  private readonly DEBOUNCE_TIME: number = 0.2; // 200ms debounce for name entry
+  private confirmDebounce: number = 0;
+  private readonly CONFIRM_DEBOUNCE_TIME: number = 0.5; // 500ms debounce for confirmation
   
   /**
    * Update high score entry state
@@ -390,10 +463,19 @@ export class Game {
   private updateHighScore(deltaTime: number, inputState: InputState): void {
     this.stateTime += deltaTime;
     
+    // Update debounce timers
+    if (this.nameEntryDebounce > 0) {
+      this.nameEntryDebounce -= deltaTime;
+    }
+    
+    if (this.confirmDebounce > 0) {
+      this.confirmDebounce -= deltaTime;
+    }
+    
     // Handle name entry
     if (this.nameEntryPosition < this.MAX_NAME_LENGTH) {
-      // Move selection up/down through characters
-      if (inputState.up === 1) {
+      // Move selection up/down through characters with debounce
+      if (inputState.up === KeyState.PRESSED || (inputState.up === KeyState.HELD && this.nameEntryDebounce <= 0)) {
         const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
         const currentIndex = this.ALLOWED_CHARS.indexOf(currentChar);
         const newIndex = (currentIndex + 1) % this.ALLOWED_CHARS.length;
@@ -403,9 +485,11 @@ export class Game {
         this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
         // Reset state time to prevent auto-advancing
         this.stateTime = 0;
+        // Set debounce timer
+        this.nameEntryDebounce = this.DEBOUNCE_TIME;
       }
       
-      if (inputState.down === 1) {
+      if (inputState.down === KeyState.PRESSED || (inputState.down === KeyState.HELD && this.nameEntryDebounce <= 0)) {
         const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
         const currentIndex = this.ALLOWED_CHARS.indexOf(currentChar);
         const newIndex = (currentIndex - 1 + this.ALLOWED_CHARS.length) % this.ALLOWED_CHARS.length;
@@ -415,10 +499,20 @@ export class Game {
         this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
         // Reset state time to prevent auto-advancing
         this.stateTime = 0;
+        // Set debounce timer
+        this.nameEntryDebounce = this.DEBOUNCE_TIME;
       }
       
-      // Confirm character and move to next position
-      if (inputState.fire === 1) {
+      // Confirm character and move to next position - with strong debounce
+      // Add space key (fire) explicitly to make sure it works
+      const confirmPressed =
+          inputState.fire === KeyState.PRESSED ||
+          inputState.start === KeyState.PRESSED ||
+          inputState.left === KeyState.PRESSED ||
+          inputState.right === KeyState.PRESSED;
+          
+      // Special check for space key since it's important for confirmation
+      if (this.inputHandler.isSpacePressed() && this.confirmDebounce <= 0) {
         // If no character is selected, default to 'A'
         if (this.nameEntryPosition >= this.playerName.length) {
           this.playerName += 'A';
@@ -428,6 +522,23 @@ export class Game {
         this.soundEngine.playSound(SoundEffect.MENU_SELECT);
         // Reset state time to prevent auto-advancing
         this.stateTime = 0;
+        // Set confirm debounce timer to prevent multiple confirmations
+        this.confirmDebounce = this.CONFIRM_DEBOUNCE_TIME;
+        return; // Skip the regular check below
+      }
+          
+      if (confirmPressed && this.confirmDebounce <= 0) {
+        // If no character is selected, default to 'A'
+        if (this.nameEntryPosition >= this.playerName.length) {
+          this.playerName += 'A';
+        }
+        
+        this.nameEntryPosition++;
+        this.soundEngine.playSound(SoundEffect.MENU_SELECT);
+        // Reset state time to prevent auto-advancing
+        this.stateTime = 0;
+        // Set confirm debounce timer to prevent multiple confirmations
+        this.confirmDebounce = this.CONFIRM_DEBOUNCE_TIME;
       }
     } else {
       // Name entry complete, add high score after a short delay
@@ -437,6 +548,8 @@ export class Game {
         this.stateTime = 0;
         this.playerName = '';
         this.nameEntryPosition = 0;
+        this.nameEntryDebounce = 0;
+        this.confirmDebounce = 0;
       }
     }
   }
@@ -489,8 +602,8 @@ export class Game {
     const centerX = this.width / 2;
     const startY = this.height / 3;
     
-    // Draw boot messages
-    for (let i = 0; i <= this.currentBootMessage; i++) {
+    // Draw boot messages (except the last "SYSTEM READY" message which is drawn separately)
+    for (let i = 0; i < Math.min(this.currentBootMessage, this.bootMessages.length - 1); i++) {
       const message = this.bootMessages[i];
       const alpha = i === this.currentBootMessage
         ? Math.min(1, (this.bootProgress * this.bootMessages.length) % 1 + 0.5)
@@ -499,7 +612,7 @@ export class Game {
       this.renderer.drawText(message, {
         x: centerX,
         y: startY + i * 60, // Much more spacing between lines for better readability
-        color: i === this.bootMessages.length - 1 ? '#00FF00' : '#FFFFFF',
+        color: '#FFFFFF',
         fontSize: 72, // Much larger font size for better visibility
         align: 'center',
         alpha,
@@ -513,6 +626,31 @@ export class Game {
     const barHeight = 30;
     const barX = (this.width - barWidth) / 2;
     const barY = this.height * 0.7;
+    
+    // Draw system ready text separately with better placement
+    if (this.currentBootMessage === this.bootMessages.length - 1) {
+      this.renderer.drawText(this.bootMessages[this.bootMessages.length - 1], {
+        x: centerX,
+        y: startY + (this.bootMessages.length - 1) * 60,
+        color: '#00FF00',
+        fontSize: 72,
+        align: 'center',
+        alpha: 1,
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+    }
+    
+    // Draw licensed text (moved below progress bar)
+    this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
+      x: centerX,
+      y: this.height * 0.7 + barHeight + 40,
+      color: '#FF0000',
+      fontSize: 36,
+      align: 'center',
+      fontFamily: 'Press Start 2P, monospace',
+      pixelated: true
+    });
     
     // Bar background
     this.renderer.fillRect(barX, barY, barWidth, barHeight, '#333333');
@@ -539,17 +677,6 @@ export class Game {
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
-    
-    // Draw licensed text
-    this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
-      x: centerX,
-      y: this.height - 150,
-      color: '#FF0000',
-      fontSize: 36,
-      align: 'center',
-      fontFamily: 'Press Start 2P, monospace',
-      pixelated: true
-    });
   }
   
   /**
@@ -558,56 +685,170 @@ export class Game {
   private renderTitleScreen(): void {
     const centerX = this.width / 2;
     
-    // Draw title
-    const titleY = this.height * 0.2;
-    this.drawLogo(centerX, titleY);
+    // Draw dark red background with gradient
+    this.renderer.fillRect(0, 0, this.width, this.height, '#110000');
     
-    // Draw subtitle
-    this.renderer.drawText("VAMPIRE UNDERWORLD", {
+    // Draw vertical dark red columns on sides for authentic arcade look
+    const columnWidth = this.width * 0.15;
+    this.renderer.fillRect(0, 0, columnWidth, this.height, '#220000');
+    this.renderer.fillRect(this.width - columnWidth, 0, columnWidth, this.height, '#220000');
+    
+    // Draw horizontal scanlines for CRT effect
+    for (let i = 0; i < this.height; i += 3) {
+      this.renderer.fillRect(0, i, this.width, 1, 'rgba(0, 0, 0, 0.1)');
+    }
+    
+    // Draw background stars with pulsing effect
+    for (let i = 0; i < 80; i++) {
+      const starX = Math.sin(this.stateTime * 0.1 + i) * 100 + centerX + (i * 20) % this.width - 100;
+      const starY = Math.cos(this.stateTime * 0.1 + i) * 100 + this.height / 2 + (i * 15) % this.height - 100;
+      const starSize = 1 + Math.sin(this.stateTime * 2 + i) * 1;
+      this.renderer.fillCircle(starX, starY, starSize, '#FFFFFF');
+    }
+    
+    // Draw large background fangs
+    const fangWidth = 120;
+    const fangHeight = 350;
+    const fangSpacing = 250;
+    
+    // Left fang (background)
+    this.renderer.fillRect(centerX - fangSpacing, 50, fangWidth, fangHeight, 'rgba(153, 0, 0, 0.3)');
+    this.renderer.fillRect(centerX - fangSpacing, 50, fangWidth / 2, fangHeight, 'rgba(85, 0, 0, 0.3)');
+    
+    // Right fang (background)
+    this.renderer.fillRect(centerX + fangSpacing - fangWidth, 50, fangWidth, fangHeight, 'rgba(153, 0, 0, 0.3)');
+    this.renderer.fillRect(centerX + fangSpacing - fangWidth / 2, 50, fangWidth / 2, fangHeight, 'rgba(85, 0, 0, 0.3)');
+    
+    // Draw blood drips from top of screen
+    for (let i = 0; i < 8; i++) {
+      const x = this.width * (i + 0.5) / 8;
+      const height = 30 + Math.sin(this.stateTime + i) * 20;
+      this.renderer.fillRect(x - 3, 0, 6, height, '#990000');
+    }
+    
+    // Draw title (much larger)
+    const titleY = this.height * 0.15;
+    this.drawLogo(centerX, titleY, 2.5); // Much larger size
+    
+    // Draw decorative vampire bats flying in background
+    for (let i = 0; i < 3; i++) {
+      const batX = (this.width * 0.2) + (this.width * 0.3 * i) + Math.sin(this.stateTime * 0.5 + i) * 50;
+      const batY = this.height * 0.3 + Math.cos(this.stateTime * 0.5 + i) * 30;
+      const batSize = 15 + i * 5;
+      
+      // Draw simple bat shape
+      this.renderer.fillRect(batX - batSize/2, batY, batSize, batSize/2, '#660000');
+      this.renderer.fillRect(batX - batSize, batY - batSize/4, batSize/2, batSize/2, '#660000');
+      this.renderer.fillRect(batX + batSize/2, batY - batSize/4, batSize/2, batSize/2, '#660000');
+    }
+    
+    // Draw prompt (blinking with glow effect)
+    const promptAlpha = (Math.sin(this.stateTime * 5) + 1) / 2;
+    
+    // Create a red box behind the prompt
+    this.renderer.fillRect(centerX - 250, this.height * 0.4 - 30, 500, 60, '#550000');
+    this.renderer.strokeRect(centerX - 250, this.height * 0.4 - 30, 500, 60, '#FF0000', 2);
+    
+    // Draw glow behind text
+    this.renderer.drawText("PRESS SPACE TO PLAY", {
       x: centerX,
-      y: titleY + 120,
-      color: '#990000',
-      fontSize: 72, // Much larger font size
+      y: this.height * 0.4,
+      color: 'rgba(255, 0, 0, 0.5)',
+      fontSize: 52,
       align: 'center',
+      alpha: promptAlpha * 0.7,
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
     
-    // Draw prompt (blinking)
-    const promptAlpha = (Math.sin(this.stateTime * 5) + 1) / 2;
-    this.renderer.drawText("PRESS FIRE TO START", {
+    // Draw main text
+    this.renderer.drawText("PRESS SPACE TO PLAY", {
       x: centerX,
-      y: this.height * 0.55,
+      y: this.height * 0.4,
       color: '#FFFFFF',
-      fontSize: 48, // Much larger font size
+      fontSize: 48,
       align: 'center',
       alpha: promptAlpha,
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
     
-    // Draw high scores
+    // Draw high scores section with decorative border
+    const scoreBoxWidth = 500;
+    const scoreBoxHeight = 250;
+    const scoreBoxX = centerX - scoreBoxWidth / 2;
+    const scoreBoxY = this.height * 0.55 - 40;
+    
+    // Draw score box background
+    this.renderer.fillRect(scoreBoxX, scoreBoxY, scoreBoxWidth, scoreBoxHeight, 'rgba(0, 0, 0, 0.7)');
+    this.renderer.strokeRect(scoreBoxX, scoreBoxY, scoreBoxWidth, scoreBoxHeight, '#FFAA00', 2);
+    
+    // Draw high scores header with arcade-style decoration
+    this.renderer.fillRect(centerX - 200, scoreBoxY + 10, 400, 3, '#FFAA00');
+    
     this.renderer.drawText("HIGH SCORES", {
       x: centerX,
-      y: this.height * 0.65,
+      y: scoreBoxY + 30,
       color: '#FFAA00',
-      fontSize: 36, // Larger font size
+      fontSize: 36,
       align: 'center',
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
     
-    // Display top 3 scores with names
-    const displayScores = this.highScores.slice(0, 3);
+    this.renderer.fillRect(centerX - 200, scoreBoxY + 50, 400, 3, '#FFAA00');
+    
+    // Display top 5 scores with names
+    const displayScores = [
+      { name: 'ACE', score: 30000, wave: 5 },
+      { name: 'HAX', score: 20000, wave: 3 },
+      { name: 'BOB', score: 10000, wave: 2 },
+      { name: 'ZOE', score: 5000, wave: 1 },
+      { name: 'DAN', score: 2500, wave: 1 }
+    ];
+    
     for (let i = 0; i < displayScores.length; i++) {
       const score = displayScores[i];
-      // Display name and score on the same line
-      this.renderer.drawText(`${score.name}  ${score.score.toString().padStart(6, '0')}  WAVE ${score.wave}`, {
-        x: centerX,
-        y: this.height * 0.65 + 50 + i * 50,
-        color: '#FFFFFF',
-        fontSize: 36,
-        align: 'center',
+      // Display rank
+      this.renderer.drawText(`${i+1}.`, {
+        x: scoreBoxX + 80,
+        y: scoreBoxY + 90 + i * 30,
+        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        fontSize: 24,
+        align: 'right',
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+      
+      // Display name
+      this.renderer.drawText(score.name, {
+        x: scoreBoxX + 100,
+        y: scoreBoxY + 90 + i * 30,
+        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        fontSize: 24,
+        align: 'left',
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+      
+      // Display score
+      this.renderer.drawText(score.score.toString().padStart(6, '0'), {
+        x: scoreBoxX + 250,
+        y: scoreBoxY + 90 + i * 30,
+        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        fontSize: 24,
+        align: 'right',
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+      
+      // Display wave
+      this.renderer.drawText(`WAVE ${score.wave}`, {
+        x: scoreBoxX + 420,
+        y: scoreBoxY + 90 + i * 30,
+        color: i === 0 ? '#FFFF00' : '#FFFFFF', // Gold color for top score
+        fontSize: 24,
+        align: 'right',
         fontFamily: 'Press Start 2P, monospace',
         pixelated: true
       });
@@ -623,6 +864,17 @@ export class Game {
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
+    
+    // Draw "LICENSED BY WEST COAST AI LABS" text at bottom
+    this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
+      x: centerX,
+      y: this.height - 70,
+      color: '#FF0000',
+      fontSize: 24,
+      align: 'center',
+      fontFamily: 'Press Start 2P, monospace',
+      pixelated: true
+    });
   }
   
   /**
@@ -631,6 +883,9 @@ export class Game {
   private renderGame(): void {
     // Draw enemies
     this.formationManager.draw(this.renderer);
+    
+    // Draw power-ups
+    this.powerUpManager.draw(this.renderer);
     
     // Draw player
     this.player.draw(this.renderer);
@@ -654,6 +909,32 @@ export class Game {
       pixelated: true
     });
     
+    // Lives (moved to top left, next to score)
+    this.renderer.drawText(`LIVES ${this.player.getLives()}`, {
+      x: 40,
+      y: 80,
+      color: '#FF0000',
+      fontSize: 24,
+      align: 'left',
+      fontFamily: 'Press Start 2P, monospace',
+      pixelated: true
+    });
+    
+    // Draw small life icons
+    for (let i = 0; i < this.player.getLives(); i++) {
+      // Smaller player ship icon for each life
+      const shipX = 150 + i * 25;
+      const shipY = 75;
+      
+      // Ship body (crossbow shape)
+      this.renderer.fillRect(shipX + 5, shipY, 10, 15, '#EEEEEE');
+      this.renderer.fillRect(shipX, shipY + 5, 20, 5, '#EEEEEE');
+      
+      // Ship details
+      this.renderer.fillRect(shipX + 9, shipY, 2, 20, '#990000');
+      this.renderer.fillRect(shipX + 1, shipY + 6, 18, 2, '#990000');
+    }
+    
     // High score
     const highestScore = this.highScores.length > 0 ? this.highScores[0].score : 30000;
     this.renderer.drawText(`HI-SCORE ${highestScore.toString().padStart(6, '0')}`, {
@@ -676,32 +957,6 @@ export class Game {
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
-    
-    // Lives
-    this.renderer.drawText(`LIVES`, {
-      x: 40,
-      y: this.height - 60,
-      color: '#FF0000',
-      fontSize: 32,
-      align: 'left',
-      fontFamily: 'Press Start 2P, monospace',
-      pixelated: true
-    });
-    
-    // Draw life icons
-    for (let i = 0; i < this.player.getLives(); i++) {
-      // Larger player ship icon for each life
-      const shipX = 150 + i * 60;
-      const shipY = this.height - 65;
-      
-      // Ship body
-      this.renderer.fillRect(shipX + 10, shipY, 20, 30, '#EEEEEE');
-      this.renderer.fillRect(shipX, shipY + 10, 40, 10, '#EEEEEE');
-      
-      // Ship details
-      this.renderer.fillRect(shipX + 18, shipY, 5, 40, '#990000');
-      this.renderer.fillRect(shipX + 2, shipY + 12, 36, 5, '#990000');
-    }
   }
   
   /**
@@ -820,12 +1075,15 @@ export class Game {
       pixelated: true
     });
     
-    this.renderer.drawText("FIRE: CONFIRM", {
+    // Make the confirm instruction more visible with blinking effect
+    const confirmAlpha = (Math.sin(this.stateTime * 5) + 1) / 2;
+    this.renderer.drawText("PRESS SPACE TO CONFIRM", {
       x: centerX,
       y: centerY + 170,
-      color: '#AAAAAA',
+      color: '#FFFFFF',
       fontSize: 24,
       align: 'center',
+      alpha: confirmAlpha,
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
@@ -834,40 +1092,58 @@ export class Game {
   /**
    * Draw the Valaxy logo
    */
-  private drawLogo(x: number, y: number): void {
+  private drawLogo(x: number, y: number, scale: number = 1): void {
     // Logo colors
     const mainColor = '#990000'; // Blood red
     const glowColor = 'rgba(153, 0, 0, 0.6)'; // Blood red glow
     const outlineColor = '#550000'; // Dark red outline
+    const highlightColor = '#FF3333'; // Bright red highlight
     
     // Logo dimensions
-    const logoWidth = 480; // Doubled size
-    const logoHeight = 180; // Doubled size
+    const logoWidth = 480 * scale; // Scaled size
+    const logoHeight = 180 * scale; // Scaled size
     
-    // Draw glow effect
-    this.renderer.fillCircle(
-      x,
-      y + logoHeight / 2,
-      logoWidth / 1.5, // Larger glow radius
-      glowColor
-    );
+    // No glow effect as requested
     
-    // "VALAXY" text (pixelated style)
-    this.renderer.drawText("VALAXY!!!", {
-      x: x,
-      y: y,
-      color: mainColor,
-      fontSize: 96, // Doubled font size
+    // Draw logo shadow
+    this.renderer.drawText("VALAXY", {
+      x: x + 4 * scale,
+      y: y + 4 * scale,
+      color: 'rgba(0, 0, 0, 0.5)',
+      fontSize: 96 * scale, // Scaled font size
       fontFamily: 'Press Start 2P, monospace',
       align: 'center',
       pixelated: true
     });
     
+    // "VALAXY" text (pixelated style)
+    this.renderer.drawText("VALAXY", {
+      x: x,
+      y: y,
+      color: mainColor,
+      fontSize: 96 * scale, // Scaled font size
+      fontFamily: 'Press Start 2P, monospace',
+      align: 'center',
+      pixelated: true
+    });
+    
+    // Add highlight to the logo text
+    this.renderer.drawText("VALAXY", {
+      x: x - 2 * scale,
+      y: y - 2 * scale,
+      color: highlightColor,
+      fontSize: 96 * scale,
+      fontFamily: 'Press Start 2P, monospace',
+      align: 'center',
+      pixelated: true,
+      alpha: 0.3
+    });
+    
     // Draw larger vampire fangs under the logo
-    const fangWidth = 25;
-    const fangHeight = 40;
-    const fangSpacing = 40;
-    const fangY = y + 100;
+    const fangWidth = 25 * scale;
+    const fangHeight = 40 * scale;
+    const fangSpacing = 40 * scale;
+    const fangY = y + 100 * scale;
     
     // Left fang
     this.renderer.fillRect(x - fangSpacing, fangY, fangWidth, fangHeight, mainColor);
@@ -876,6 +1152,17 @@ export class Game {
     // Right fang
     this.renderer.fillRect(x + fangSpacing - fangWidth, fangY, fangWidth, fangHeight, mainColor);
     this.renderer.fillRect(x + fangSpacing - fangWidth / 2, fangY, fangWidth / 2, fangHeight, outlineColor);
+    
+    // Add blood drips from fangs
+    const dripsCount = 3;
+    for (let i = 0; i < dripsCount; i++) {
+      const drip1X = x - fangSpacing + fangWidth / 2 - (5 * scale) + (i * 5 * scale);
+      const drip2X = x + fangSpacing - fangWidth / 2 - (5 * scale) + (i * 5 * scale);
+      const dripLength = (10 + Math.sin(this.stateTime * 2 + i) * 5) * scale;
+      
+      this.renderer.fillRect(drip1X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
+      this.renderer.fillRect(drip2X, fangY + fangHeight, 3 * scale, dripLength, highlightColor);
+    }
   }
   
   /**
@@ -944,6 +1231,7 @@ export class Game {
     this.player = new Player(this.soundEngine, this.width, this.height);
     this.formationManager = new FormationManager(this.soundEngine, this.width, this.height);
     this.formationManager.createWave();
+    this.powerUpManager.clearPowerUps(); // Clear any existing power-ups
     this.state = GameState.GAME_START;
     this.stateTime = 0;
     this.gameStarted = true;
@@ -1017,6 +1305,13 @@ export class Game {
     }
   }
   
+  /**
+   * Get the input handler
+   */
+  public getInputHandler(): InputHandler {
+    return this.inputHandler;
+  }
+
   /**
    * Clean up game resources
    */

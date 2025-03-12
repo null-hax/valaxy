@@ -35,7 +35,7 @@ export class InputHandler {
     'ArrowDown': 'down',
     's': 'down',
     'S': 'down',
-    ' ': 'fire',        // Space bar
+    ' ': 'fire',        // Space bar - only space for firing
     'Enter': 'start',
     'p': 'pause',
     'P': 'pause',
@@ -105,6 +105,20 @@ export class InputHandler {
       start: this.keyStates['start'] || KeyState.IDLE,
       pause: this.keyStates['pause'] || KeyState.IDLE
     };
+  }
+  
+  /**
+   * Check if space key is pressed or held (for high score entry)
+   */
+  public isSpacePressed(): boolean {
+    return this.keyStates['fire'] === KeyState.PRESSED || this.keyStates['fire'] === KeyState.HELD;
+  }
+  
+  /**
+   * Set a virtual key state (for mobile controls)
+   */
+  public setVirtualKey(key: keyof InputState, state: KeyState): void {
+    this.keyStates[key] = state;
   }
   
   /**

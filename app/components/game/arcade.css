@@ -187,27 +187,35 @@
   }
 }
 
-/* Classic arcade title screen slide-up animation */
+/* Classic arcade title screen slide-up animation - smoother and slower */
 @keyframes slideUp {
   0% {
     transform: translateY(100%);
     opacity: 0;
   }
-  20% {
-    transform: translateY(80%);
+  10% {
+    transform: translateY(90%);
+    opacity: 0.1;
+  }
+  30% {
+    transform: translateY(70%);
     opacity: 0.3;
   }
-  40% {
-    transform: translateY(60%);
-    opacity: 0.6;
+  50% {
+    transform: translateY(50%);
+    opacity: 0.5;
   }
-  60% {
-    transform: translateY(40%);
-    opacity: 0.8;
+  70% {
+    transform: translateY(30%);
+    opacity: 0.7;
   }
-  80% {
-    transform: translateY(10%);
-    opacity: 0.9;
+  85% {
+    transform: translateY(15%);
+    opacity: 0.85;
+  }
+  95% {
+    transform: translateY(5%);
+    opacity: 0.95;
   }
   100% {
     transform: translateY(0);
@@ -216,7 +224,7 @@
 }
 
 .title-screen-slide {
-  animation: slideUp 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+  animation: slideUp 2.5s cubic-bezier(0.1, 0.5, 0.3, 1) forwards;
 }
 
 .arcade-cabinet {

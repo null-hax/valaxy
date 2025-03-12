@@ -78,6 +78,9 @@ export class Enemy implements Collidable {
   private explosionDuration: number = 0.5;
   private transformationTimer: number = 0;
   private transformationDuration: number = 1.0;
+  private hitAnimationTimer: number = 0;
+  private hitAnimationDuration: number = 0.2;
+  private isShowingHitAnimation: boolean = false;
   
   // Animation
   private animationFrame: number = 0;
@@ -152,6 +155,15 @@ export class Enemy implements Collidable {
     if (this.frameTime >= this.frameDuration) {
       this.frameTime = 0;
       this.animationFrame = (this.animationFrame + 1) % this.frameCount;
+    }
+    
+    // Update hit animation if active
+    if (this.isShowingHitAnimation) {
+      this.hitAnimationTimer += deltaTime;
+      if (this.hitAnimationTimer >= this.hitAnimationDuration) {
+        this.isShowingHitAnimation = false;
+        this.hitAnimationTimer = 0;
+      }
     }
     
     // Update state
@@ -340,30 +352,92 @@ export class Enemy implements Collidable {
     if (!this.active) return;
     
     if (this.state === EnemyState.EXPLODING) {
-      // Draw explosion animation
-      const progress = this.explosionTimer / this.explosionDuration;
-      const radius = this.width / 2 * (1 - progress);
+      // Authentic 80s arcade explosion animation - pure pixels, no circles
+      const explosionProgress = this.explosionTimer / this.explosionDuration;
+      const centerX = Math.floor(this.x + this.width / 2);
+      const centerY = Math.floor(this.y + this.height / 2);
       
-      // Main explosion
-      renderer.fillCircle(
-        this.x + this.width / 2,
-        this.y + this.height / 2,
-        radius * 1.5,
-        `rgba(153, 0, 0, ${1 - progress})` // Blood red explosion
-      );
+      // Classic explosion colors
+      const explosionColors = ['#FFFFFF', '#FF0000', '#FFFF00', '#FF8800'];
       
-      // Particles
-      for (let i = 0; i < 8; i++) {
-        const angle = Math.PI * 2 * (i / 8);
-        const particleDistance = radius * 2;
-        const particleX = this.x + this.width / 2 + Math.cos(angle) * particleDistance;
-        const particleY = this.y + this.height / 2 + Math.sin(angle) * particleDistance;
+      // Draw Space Invaders style explosion - just pixels flying outward
+      const maxParticles = 24; // More particles for a denser effect
+      
+      for (let i = 0; i < maxParticles; i++) {
+        // Calculate position with slight randomness
+        const angle = (Math.PI * 2 * i / maxParticles) + (explosionProgress * Math.PI * 0.5);
+        const distance = 40 * explosionProgress;
         
-        renderer.fillCircle(
+        // Add slight randomness to distance for more natural look
+        const randomOffset = Math.sin(i * 7.3) * 5;
+        const particleX = centerX + Math.floor(Math.cos(angle) * (distance + randomOffset));
+        const particleY = centerY + Math.floor(Math.sin(angle) * (distance + randomOffset));
+        
+        // Pixel size varies based on distance from center (closer = larger)
+        const pixelSize = Math.max(1, Math.floor(4 * (1 - explosionProgress)));
+        
+        // Color based on position and time
+        const colorIndex = Math.floor((i + explosionProgress * 12) % explosionColors.length);
+        
+        // Draw single pixel (or small block for visibility)
+        renderer.fillRect(
           particleX,
           particleY,
-          radius / 2,
-          `rgba(153, 0, 0, ${1 - progress})`
+          pixelSize,
+          pixelSize,
+          explosionColors[colorIndex]
+        );
+      }
+      
+      // Add Space Invaders style explosion fragments - just rectangular blocks
+      if (explosionProgress < 0.7) {
+        // Center chunk
+        renderer.fillRect(
+          centerX - 4,
+          centerY - 4,
+          8,
+          8,
+          explosionProgress < 0.3 ? '#FFFFFF' : '#FF8800'
+        );
+        
+        // Diagonal fragments
+        const fragSize = 3;
+        const fragDist = 8 * explosionProgress;
+        
+        // Top-left fragment
+        renderer.fillRect(
+          centerX - fragSize - fragDist,
+          centerY - fragSize - fragDist,
+          fragSize,
+          fragSize,
+          '#FFFFFF'
+        );
+        
+        // Top-right fragment
+        renderer.fillRect(
+          centerX + fragDist,
+          centerY - fragSize - fragDist,
+          fragSize,
+          fragSize,
+          '#FF0000'
+        );
+        
+        // Bottom-left fragment
+        renderer.fillRect(
+          centerX - fragSize - fragDist,
+          centerY + fragDist,
+          fragSize,
+          fragSize,
+          '#FFFF00'
+        );
+        
+        // Bottom-right fragment
+        renderer.fillRect(
+          centerX + fragDist,
+          centerY + fragDist,
+          fragSize,
+          fragSize,
+          '#FF8800'
         );
       }
     } else if (this.state === EnemyState.TRANSFORMING) {
@@ -383,13 +457,71 @@ export class Enemy implements Collidable {
       // Draw morphing shape
       this.drawEnemy(renderer, progress);
     } else {
-      this.drawEnemy(renderer);
+      // Draw the enemy with hit animation if active
+      if (this.isShowingHitAnimation) {
+        this.drawEnemyHitAnimation(renderer);
+      } else {
+        this.drawEnemy(renderer);
+      }
     }
     
     // Draw projectiles
     for (const projectile of this.projectiles) {
       projectile.draw(renderer);
     }
+  }
+  
+  /**
+   * Draw enemy hit animation (bloody splatter effect)
+   */
+  private drawEnemyHitAnimation(renderer: Renderer): void {
+    // First draw the normal enemy
+    this.drawEnemy(renderer);
+    
+    // Then overlay the hit effect - pixelated blood splatter
+    const centerX = Math.floor(this.x + this.width / 2);
+    const centerY = Math.floor(this.y + this.height / 2);
+    
+    // Blood colors
+    const bloodColors = ['#FF0000', '#990000', '#660000', '#CC0000'];
+    
+    // Draw blood pixels
+    const hitProgress = this.hitAnimationTimer / this.hitAnimationDuration;
+    const maxSplatter = 12;
+    
+    for (let i = 0; i < maxSplatter; i++) {
+      // Calculate random positions for blood pixels
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * this.width * 0.6;
+      
+      const pixelX = centerX + Math.cos(angle) * distance;
+      const pixelY = centerY + Math.sin(angle) * distance;
+      
+      // Random blood pixel size (1-3 pixels)
+      const pixelSize = Math.floor(Math.random() * 3) + 1;
+      
+      // Random blood color
+      const colorIndex = Math.floor(Math.random() * bloodColors.length);
+      
+      // Draw blood pixel
+      renderer.fillRect(
+        pixelX,
+        pixelY,
+        pixelSize,
+        pixelSize,
+        bloodColors[colorIndex]
+      );
+    }
+    
+    // Flash the enemy red
+    const flashOpacity = 0.7 * (1 - hitProgress);
+    renderer.fillRect(
+      this.x,
+      this.y,
+      this.width,
+      this.height,
+      `rgba(255, 0, 0, ${flashOpacity})`
+    );
   }
   
   /**
@@ -541,14 +673,20 @@ export class Enemy implements Collidable {
     this.health--;
     
     if (this.health <= 0) {
+      // Enemy destroyed
       this.state = EnemyState.EXPLODING;
       this.explosionTimer = 0;
       this.soundEngine.playSound(
-        this.type === EnemyType.BLOOD_LORD 
-          ? SoundEffect.BOSS_EXPLOSION 
+        this.type === EnemyType.BLOOD_LORD
+          ? SoundEffect.BOSS_EXPLOSION
           : SoundEffect.ENEMY_EXPLOSION
       );
       return true;
+    } else {
+      // Enemy hit but not destroyed - show hit animation
+      this.isShowingHitAnimation = true;
+      this.hitAnimationTimer = 0;
+      this.soundEngine.playSound(SoundEffect.ENEMY_SHOOT); // Reuse sound for hit effect
     }
     
     return false;
