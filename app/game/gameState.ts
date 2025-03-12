@@ -70,7 +70,7 @@ export class Game {
     "LOADING VAMPIRE DATABASE...",
     "CALIBRATING STAKE LAUNCHERS...",
     "SCANNING FOR BLOOD SIGNATURES...",
-    "ACTIVATING GARLIC SHIELDS...",
+    "",
     "SYSTEM READY."
   ];
   private currentBootMessage: number = 0;
@@ -96,14 +96,14 @@ export class Game {
     // Create a smaller number of stars for better performance
     this.createStars(40);
     
-    // Load high scores
-    this.loadHighScores();
-    
     // Set up event handlers
     this.setupEventHandlers();
     
     // Set the game loop update callback
     this.gameLoop.setUpdateCallback(this.update.bind(this));
+    
+    // Load high scores (async, but we don't need to await here)
+    this.loadHighScores().catch(err => console.error('Failed to load high scores:', err));
   }
   
   /**
@@ -229,6 +229,15 @@ export class Game {
    */
   private updateTitleScreen(deltaTime: number, inputState: InputState): void {
     this.stateTime += deltaTime;
+    
+    // Reload high scores when first entering title screen
+    if (this.stateTime < deltaTime * 2) {
+      this.loadHighScores().then(() => {
+        console.log('High scores loaded for title screen:', this.highScores);
+      }).catch(err => {
+        console.error('Failed to load high scores for title screen:', err);
+      });
+    }
     
     // Start game on fire or start button
     if (inputState.fire === 1 || inputState.start === 1) {
@@ -544,6 +553,14 @@ export class Game {
       // Name entry complete, add high score after a short delay
       if (this.stateTime >= 1) {
         this.addHighScore();
+        
+        // Reload high scores before returning to title screen
+        this.loadHighScores().then(() => {
+          console.log('High scores reloaded for title screen:', this.highScores);
+        }).catch(err => {
+          console.error('Failed to reload high scores:', err);
+        });
+        
         this.state = GameState.TITLE;
         this.stateTime = 0;
         this.playerName = '';
@@ -627,17 +644,18 @@ export class Game {
     const barX = (this.width - barWidth) / 2;
     const barY = this.height * 0.7;
     
-    // Draw system ready text separately with better placement
+    // Draw system ready text separately with better placement and alignment
     if (this.currentBootMessage === this.bootMessages.length - 1) {
       this.renderer.drawText(this.bootMessages[this.bootMessages.length - 1], {
         x: centerX,
-        y: startY + (this.bootMessages.length - 1) * 60,
+        y: this.height * 0.7 + barHeight + 20,
         color: '#00FF00',
         fontSize: 72,
         align: 'center',
         alpha: 1,
         fontFamily: 'Press Start 2P, monospace',
-        pixelated: true
+        pixelated: true,
+        baseline: 'middle' // Ensure consistent vertical alignment
       });
     }
     
@@ -752,7 +770,7 @@ export class Game {
     // Draw glow behind text
     this.renderer.drawText("PRESS SPACE TO PLAY", {
       x: centerX,
-      y: this.height * 0.4,
+      y: this.height * 0.39,
       color: 'rgba(255, 0, 0, 0.5)',
       fontSize: 52,
       align: 'center',
@@ -764,7 +782,7 @@ export class Game {
     // Draw main text
     this.renderer.drawText("PRESS SPACE TO PLAY", {
       x: centerX,
-      y: this.height * 0.4,
+      y: this.height * 0.39,
       color: '#FFFFFF',
       fontSize: 48,
       align: 'center',
@@ -798,14 +816,8 @@ export class Game {
     
     this.renderer.fillRect(centerX - 200, scoreBoxY + 50, 400, 3, '#FFAA00');
     
-    // Display top 5 scores with names
-    const displayScores = [
-      { name: 'ACE', score: 30000, wave: 5 },
-      { name: 'HAX', score: 20000, wave: 3 },
-      { name: 'BOB', score: 10000, wave: 2 },
-      { name: 'ZOE', score: 5000, wave: 1 },
-      { name: 'DAN', score: 2500, wave: 1 }
-    ];
+    // Display top 5 scores from our high scores array
+    const displayScores = this.highScores.slice(0, 5);
     
     for (let i = 0; i < displayScores.length; i++) {
       const score = displayScores[i];
@@ -1136,7 +1148,7 @@ export class Game {
       fontFamily: 'Press Start 2P, monospace',
       align: 'center',
       pixelated: true,
-      alpha: 0.3
+      alpha: 0.1
     });
     
     // Draw larger vampire fangs under the logo
@@ -1267,41 +1279,91 @@ export class Game {
       this.highScores = this.highScores.slice(0, 10);
     }
     
-    // Save to local storage
-    this.saveHighScores();
+    // Save to API and local storage
+    this.saveHighScores().catch(err => {
+      console.error('Failed to save high score to API:', err);
+      // Fallback to local storage only if API fails
+      this.saveHighScoresToLocalStorage();
+    });
   }
   
   /**
-   * Load high scores from local storage
+   * Load high scores from API
    */
-  private loadHighScores(): void {
+  private async loadHighScores(): Promise<void> {
     try {
-      const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
-      if (savedScores) {
-        this.highScores = JSON.parse(savedScores);
+      // First try to load from API
+      const response = await fetch('/api/highscores');
+      
+      if (response.ok) {
+        this.highScores = await response.json();
       } else {
-        // Initial default high scores
-        this.highScores = [
-          { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
-          { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
-          { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
-        ];
-        this.saveHighScores();
+        // Fallback to local storage if API fails
+        const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
+        if (savedScores) {
+          this.highScores = JSON.parse(savedScores);
+        } else {
+          // Initial default high scores
+          this.highScores = [
+            { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
+            { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
+            { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
+          ];
+          // Save to local storage as fallback
+          this.saveHighScoresToLocalStorage();
+        }
       }
     } catch (error) {
       console.error('Error loading high scores:', error);
-      this.highScores = [];
+      
+      // Fallback to defaults if everything fails
+      this.highScores = [
+        { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
+        { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
+        { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
+      ];
     }
   }
   
   /**
-   * Save high scores to local storage
+   * Save high scores to API and local storage as backup
    */
-  private saveHighScores(): void {
+  private async saveHighScores(): Promise<void> {
+    try {
+      // Save the entire high scores array to API
+      const response = await fetch('/api/highscores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(this.highScores),
+      });
+      
+      if (response.ok) {
+        // Update local high scores with the sorted list from the server
+        this.highScores = await response.json();
+        console.log('High scores saved successfully:', this.highScores);
+      } else {
+        console.error('Failed to save high scores to API:', await response.text());
+      }
+      
+      // Also save to local storage as backup
+      this.saveHighScoresToLocalStorage();
+    } catch (error) {
+      console.error('Error saving high scores to API:', error);
+      // Fallback to local storage only
+      this.saveHighScoresToLocalStorage();
+    }
+  }
+  
+  /**
+   * Save high scores to local storage (fallback method)
+   */
+  private saveHighScoresToLocalStorage(): void {
     try {
       localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(this.highScores));
     } catch (error) {
-      console.error('Error saving high scores:', error);
+      console.error('Error saving high scores to local storage:', error);
     }
   }
   

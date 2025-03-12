@@ -69,7 +69,7 @@
   pointer-events: none;
 }
 
-/* CRT screen effects */
+/* CRT screen effects - optimized for performance */
 .crt-overlay {
   position: absolute;
   top: 0;
@@ -80,14 +80,15 @@
   background:
     linear-gradient(
       to bottom,
-      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.03) 0%,
       rgba(255, 255, 255, 0.01) 50%,
-      rgba(0, 0, 0, 0.08) 50%,
-      rgba(0, 0, 0, 0.06) 100%
+      rgba(0, 0, 0, 0.05) 50%,
+      rgba(0, 0, 0, 0.03) 100%
     );
   background-size: 100% 4px; /* Thinner scan lines for a sharper look */
   z-index: 10;
-  opacity: 0.9;
+  opacity: 0.8;
+  will-change: background-position;
 }
 
 .crt-overlay::before {
@@ -101,7 +102,7 @@
     radial-gradient(
       ellipse at center,
       transparent 50%,
-      rgba(0, 0, 0, 0.7) 100%
+      rgba(0, 0, 0, 0.5) 100%
     );
   z-index: 11;
 }
@@ -116,106 +117,56 @@
   background:
     linear-gradient(
       90deg,
-      rgba(255, 0, 0, 0.03),
-      rgba(0, 255, 0, 0.02),
-      rgba(0, 0, 255, 0.03)
+      rgba(255, 0, 0, 0.02),
+      rgba(0, 255, 0, 0.01),
+      rgba(0, 0, 255, 0.02)
     );
   box-shadow:
-    inset 0 0 150px rgba(153, 0, 0, 0.2),
-    inset 0 0 30px rgba(255, 0, 0, 0.1);
+    inset 0 0 100px rgba(153, 0, 0, 0.1),
+    inset 0 0 20px rgba(255, 0, 0, 0.05);
   z-index: 12;
   mix-blend-mode: screen;
 }
 
-/* Add enhanced scan lines animation */
-@keyframes scanlines {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 0 20px;
-  }
-}
-
+/* Removed scanlines animation for better performance */
 .crt-overlay {
-  animation: scanlines 0.8s steps(20) infinite;
+  /* Static scanlines instead of animated for better performance */
+  background-size: 100% 2px;
+  /* Removed animation that was causing jitter */
+  transform: translateZ(0); /* Force GPU acceleration */
 }
 
-/* More subtle CRT flicker effect - less distracting */
+/* Extremely subtle CRT flicker effect - barely noticeable */
 @keyframes flicker {
   0% {
-    opacity: 0.99;
-    filter: brightness(1.01) contrast(1.01);
-  }
-  25% {
-    opacity: 0.98;
-    filter: brightness(1.00) contrast(1.01);
-  }
-  50% {
-    opacity: 0.97;
-    filter: brightness(0.99) contrast(1.00);
-  }
-  75% {
-    opacity: 0.98;
-    filter: brightness(1.00) contrast(1.01);
+    opacity: 0.995;
+    filter: brightness(1.005) contrast(1.005);
   }
   100% {
     opacity: 0.99;
-    filter: brightness(1.01) contrast(1.01);
+    filter: brightness(0.995) contrast(0.995);
   }
 }
 
-/* Simulate subtle RGB color separation */
+/* Simplified color shift for better performance */
 @keyframes colorShift {
   0% {
-    background-position: 0 0;
     box-shadow:
-      inset -1px 0 1px rgba(255, 0, 0, 0.1),
-      inset 1px 0 1px rgba(0, 0, 255, 0.1);
-  }
-  50% {
-    background-position: 0 0;
-    box-shadow:
-      inset -2px 0 1px rgba(255, 0, 0, 0.15),
-      inset 2px 0 1px rgba(0, 0, 255, 0.15);
+      inset -1px 0 1px rgba(255, 0, 0, 0.05),
+      inset 1px 0 1px rgba(0, 0, 255, 0.05);
   }
   100% {
-    background-position: 0 0;
     box-shadow:
-      inset -1px 0 1px rgba(255, 0, 0, 0.1),
-      inset 1px 0 1px rgba(0, 0, 255, 0.1);
+      inset -1px 0 1px rgba(255, 0, 0, 0.08),
+      inset 1px 0 1px rgba(0, 0, 255, 0.08);
   }
 }
 
-/* Classic arcade title screen slide-up animation - smoother and slower */
+/* Smooth arcade title screen slide-up animation */
 @keyframes slideUp {
   0% {
     transform: translateY(100%);
     opacity: 0;
-  }
-  10% {
-    transform: translateY(90%);
-    opacity: 0.1;
-  }
-  30% {
-    transform: translateY(70%);
-    opacity: 0.3;
-  }
-  50% {
-    transform: translateY(50%);
-    opacity: 0.5;
-  }
-  70% {
-    transform: translateY(30%);
-    opacity: 0.7;
-  }
-  85% {
-    transform: translateY(15%);
-    opacity: 0.85;
-  }
-  95% {
-    transform: translateY(5%);
-    opacity: 0.95;
   }
   100% {
     transform: translateY(0);
@@ -224,13 +175,15 @@
 }
 
 .title-screen-slide {
-  animation: slideUp 2.5s cubic-bezier(0.1, 0.5, 0.3, 1) forwards;
+  animation: slideUp 1.8s ease-out forwards;
+  will-change: transform, opacity;
 }
 
 .arcade-cabinet {
   animation:
-    flicker 1.5s infinite,
-    colorShift 4s infinite alternate;
+    flicker 3s infinite alternate,
+    colorShift 6s infinite alternate;
+  will-change: transform, box-shadow;
 }
 
 /* Responsive size adjustments */
@@ -286,56 +239,46 @@
   box-shadow: 0 0 20px rgba(255, 0, 0, 0.7);
 }
 
-/* Enhanced Vampire-themed glow effects */
+/* Subtle Vampire-themed glow effects */
 .vampire-glow {
   text-shadow:
-    0 0 10px rgba(255, 0, 0, 0.7),
-    0 0 20px rgba(255, 0, 0, 0.5),
-    0 0 30px rgba(255, 0, 0, 0.3);
-  animation: vampireGlow 3s infinite alternate;
+    0 0 10px rgba(255, 0, 0, 0.6),
+    0 0 20px rgba(255, 0, 0, 0.4);
   position: relative;
+  /* Removed the vampireGlow animation for a more stable appearance */
 }
 
 .vampire-glow::before {
   content: "";
   position: absolute;
-  left: -10px;
-  top: -10px;
-  right: -10px;
-  bottom: -10px;
+  left: -8px;
+  top: -8px;
+  right: -8px;
+  bottom: -8px;
   z-index: -1;
-  filter: blur(15px);
-  background: rgba(153, 0, 0, 0.4);
+  filter: blur(12px);
+  background: rgba(153, 0, 0, 0.3);
   border-radius: 50%;
-  opacity: 0.7;
-  animation: pulsate 2s ease-in-out infinite;
+  opacity: 0.6;
+  /* Removed the pulsate animation that was causing the obnoxious effect */
 }
 
+/* Keeping the keyframes for reference but not using them */
 @keyframes pulsate {
-  0% { transform: scale(0.95); opacity: 0.5; }
-  50% { transform: scale(1.05); opacity: 0.8; }
-  100% { transform: scale(0.95); opacity: 0.5; }
+  0% { transform: scale(0.98); opacity: 0.5; }
+  100% { transform: scale(1.0); opacity: 0.6; }
 }
 
 @keyframes vampireGlow {
   0% {
     text-shadow:
-      0 0 10px rgba(255, 0, 0, 0.7),
-      0 0 20px rgba(255, 0, 0, 0.5),
-      0 0 30px rgba(255, 0, 0, 0.3);
-  }
-  50% {
-    text-shadow:
-      0 0 15px rgba(255, 0, 0, 0.9),
-      0 0 30px rgba(255, 0, 0, 0.7),
-      0 0 45px rgba(255, 0, 0, 0.5),
-      0 0 60px rgba(255, 0, 0, 0.3);
+      0 0 10px rgba(255, 0, 0, 0.6),
+      0 0 20px rgba(255, 0, 0, 0.4);
   }
   100% {
     text-shadow:
-      0 0 10px rgba(255, 0, 0, 0.7),
-      0 0 20px rgba(255, 0, 0, 0.5),
-      0 0 30px rgba(255, 0, 0, 0.3);
+      0 0 12px rgba(255, 0, 0, 0.7),
+      0 0 24px rgba(255, 0, 0, 0.5);
   }
 }
 
