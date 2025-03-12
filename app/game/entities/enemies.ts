@@ -352,93 +352,79 @@ export class Enemy implements Collidable {
     if (!this.active) return;
     
     if (this.state === EnemyState.EXPLODING) {
-      // Authentic 80s arcade explosion animation - pure pixels, no circles
+      // Smaller red pixel explosion of blood
       const explosionProgress = this.explosionTimer / this.explosionDuration;
       const centerX = Math.floor(this.x + this.width / 2);
       const centerY = Math.floor(this.y + this.height / 2);
       
-      // Classic explosion colors
-      const explosionColors = ['#FFFFFF', '#FF0000', '#FFFF00', '#FF8800'];
+      // Blood colors - different shades of red
+      const bloodColors = ['#FF0000', '#CC0000', '#990000', '#660000', '#880000'];
       
-      // Draw Space Invaders style explosion - just pixels flying outward
-      const maxParticles = 24; // More particles for a denser effect
+      // Draw blood pixel explosion - smaller and more concentrated than the generic explosion
+      const maxParticles = 20; // Fewer particles for a smaller effect
       
       for (let i = 0; i < maxParticles; i++) {
         // Calculate position with slight randomness
         const angle = (Math.PI * 2 * i / maxParticles) + (explosionProgress * Math.PI * 0.5);
-        const distance = 40 * explosionProgress;
+        // Smaller distance for a more concentrated effect
+        const distance = 25 * explosionProgress;
         
         // Add slight randomness to distance for more natural look
-        const randomOffset = Math.sin(i * 7.3) * 5;
+        const randomOffset = Math.sin(i * 7.3) * 3;
         const particleX = centerX + Math.floor(Math.cos(angle) * (distance + randomOffset));
         const particleY = centerY + Math.floor(Math.sin(angle) * (distance + randomOffset));
         
-        // Pixel size varies based on distance from center (closer = larger)
-        const pixelSize = Math.max(1, Math.floor(4 * (1 - explosionProgress)));
+        // Smaller pixel size for blood droplets
+        const pixelSize = Math.max(1, Math.floor(3 * (1 - explosionProgress)));
         
-        // Color based on position and time
-        const colorIndex = Math.floor((i + explosionProgress * 12) % explosionColors.length);
+        // Random blood color
+        const colorIndex = Math.floor(Math.random() * bloodColors.length);
         
-        // Draw single pixel (or small block for visibility)
+        // Draw blood pixel
         renderer.fillRect(
           particleX,
           particleY,
           pixelSize,
           pixelSize,
-          explosionColors[colorIndex]
+          bloodColors[colorIndex]
         );
       }
       
-      // Add Space Invaders style explosion fragments - just rectangular blocks
+      // Add blood splatter effect - smaller droplets
       if (explosionProgress < 0.7) {
-        // Center chunk
+        // Central blood splash
         renderer.fillRect(
-          centerX - 4,
-          centerY - 4,
-          8,
-          8,
-          explosionProgress < 0.3 ? '#FFFFFF' : '#FF8800'
+          centerX - 3,
+          centerY - 3,
+          6,
+          6,
+          '#990000' // Dark red for central splash
         );
         
-        // Diagonal fragments
-        const fragSize = 3;
-        const fragDist = 8 * explosionProgress;
-        
-        // Top-left fragment
-        renderer.fillRect(
-          centerX - fragSize - fragDist,
-          centerY - fragSize - fragDist,
-          fragSize,
-          fragSize,
-          '#FFFFFF'
-        );
-        
-        // Top-right fragment
-        renderer.fillRect(
-          centerX + fragDist,
-          centerY - fragSize - fragDist,
-          fragSize,
-          fragSize,
-          '#FF0000'
-        );
-        
-        // Bottom-left fragment
-        renderer.fillRect(
-          centerX - fragSize - fragDist,
-          centerY + fragDist,
-          fragSize,
-          fragSize,
-          '#FFFF00'
-        );
-        
-        // Bottom-right fragment
-        renderer.fillRect(
-          centerX + fragDist,
-          centerY + fragDist,
-          fragSize,
-          fragSize,
-          '#FF8800'
-        );
+        // Random blood droplets
+        const dropletCount = 12;
+        for (let i = 0; i < dropletCount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = Math.random() * 15 * explosionProgress;
+          
+          const dropletX = centerX + Math.cos(angle) * distance;
+          const dropletY = centerY + Math.sin(angle) * distance;
+          
+          // Random droplet size (1-2 pixels)
+          const dropletSize = Math.floor(Math.random() * 2) + 1;
+          
+          // Random blood color
+          const colorIndex = Math.floor(Math.random() * bloodColors.length);
+          
+          // Draw blood droplet
+          renderer.fillRect(
+            dropletX,
+            dropletY,
+            dropletSize,
+            dropletSize,
+            bloodColors[colorIndex]
+          );
+        }
       }
     } else if (this.state === EnemyState.TRANSFORMING) {
       // Draw transformation animation
