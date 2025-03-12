@@ -950,17 +950,58 @@ export class Game {
       'rgba(255, 200, 200, 0.8)'
     );
     
-    // Draw detailed castle silhouette
+    // Draw highly detailed medieval castle
     const castleWidth = 300;
     const castleHeight = 150;
     const castleX = this.width / 2 - castleWidth / 2;
     const castleY = this.height * 0.3;
     
-    // Castle base with gradient for depth
-    const baseColor = 'rgba(40, 0, 0, 0.7)';
-    const shadowColor = 'rgba(20, 0, 0, 0.8)';
+    // Define colors for more depth and realism
+    const baseColor = 'rgba(50, 10, 10, 0.7)';      // Main castle walls
+    const darkStone = 'rgba(30, 5, 5, 0.8)';        // Shadows and dark areas
+    const lightStone = 'rgba(70, 20, 20, 0.6)';     // Highlights and light areas
+    const deepShadow = 'rgba(10, 0, 0, 0.9)';       // Deep shadows and openings
+    const windowGlow = 'rgba(255, 200, 100, 0.25)'; // Window light
+    const moonlight = 'rgba(180, 180, 220, 0.1)';   // Moonlit surfaces
     
-    // Main castle body with more detail
+    // Draw distant mountains in background for depth
+    for (let i = 0; i < 5; i++) {
+      const mountainWidth = 180 + i * 40;
+      const mountainHeight = 100 - i * 15;
+      const mountainX = castleX + (i * 80) - 150;
+      const mountainY = castleY - mountainHeight + castleHeight + 30;
+      
+      // Draw mountain silhouette
+      this.renderer.fillRect(
+        mountainX,
+        mountainY,
+        mountainWidth,
+        mountainHeight,
+        `rgba(15, 0, 0, ${0.3 - i * 0.05})`
+      );
+      
+      // Add moonlight highlight to mountain peaks
+      if (i % 2 === 0) {
+        this.renderer.fillRect(
+          mountainX + mountainWidth * 0.3,
+          mountainY,
+          mountainWidth * 0.1,
+          10,
+          moonlight
+        );
+      }
+    }
+    
+    // Draw castle foundation with texture
+    this.renderer.fillRect(
+      castleX - 20,
+      castleY + castleHeight - 20,
+      castleWidth + 40,
+      25,
+      darkStone
+    );
+    
+    // Draw main castle structure with depth
     this.renderer.fillRect(
       castleX,
       castleY,
@@ -969,149 +1010,384 @@ export class Game {
       baseColor
     );
     
-    // Castle wall details - crenellations along the top
-    const creWidth = 15;
-    const creHeight = 10;
-    const creCount = Math.floor(castleWidth / (creWidth * 2));
-    
-    for (let i = 0; i < creCount; i++) {
+    // Add stone texture to castle walls (horizontal lines)
+    for (let i = 0; i < castleHeight; i += 15) {
       this.renderer.fillRect(
-        castleX + (i * creWidth * 2) + creWidth/2,
-        castleY - creHeight,
-        creWidth,
-        creHeight,
-        baseColor
+        castleX,
+        castleY + i,
+        castleWidth,
+        2,
+        'rgba(0, 0, 0, 0.2)'
       );
     }
     
-    // Castle towers with more detail
-    const towerWidth = 40;
-    const towerHeight = 80;
-    const towerColor = 'rgba(50, 0, 0, 0.8)';
+    // Add stone texture to castle walls (vertical lines)
+    for (let i = 0; i < castleWidth; i += 30) {
+      this.renderer.fillRect(
+        castleX + i,
+        castleY,
+        2,
+        castleHeight,
+        'rgba(0, 0, 0, 0.15)'
+      );
+    }
     
-    // Left tower with windows
+    // Add castle wall battlements (crenellations)
+    const creWidth = 12;
+    const creHeight = 12;
+    const creCount = Math.floor(castleWidth / (creWidth * 1.5));
+    
+    for (let i = 0; i < creCount; i++) {
+      this.renderer.fillRect(
+        castleX + (i * creWidth * 1.5) + 5,
+        castleY - creHeight,
+        creWidth,
+        creHeight,
+        darkStone
+      );
+    }
+    
+    // Draw main keep in center (taller central structure)
+    const keepWidth = 80;
+    const keepHeight = 100;
+    const keepX = castleX + castleWidth / 2 - keepWidth / 2;
+    const keepY = castleY - keepHeight + 30;
+    
+    // Main keep structure
     this.renderer.fillRect(
-      castleX - towerWidth / 2,
-      castleY - towerHeight / 2,
-      towerWidth,
-      towerHeight,
-      towerColor
+      keepX,
+      keepY,
+      keepWidth,
+      keepHeight,
+      lightStone
     );
     
-    // Tower top
-    this.renderer.fillRect(
-      castleX - towerWidth / 2 - 5,
-      castleY - towerHeight / 2,
-      towerWidth + 10,
-      10,
-      shadowColor
-    );
+    // Keep stone texture (horizontal)
+    for (let i = 0; i < keepHeight; i += 15) {
+      this.renderer.fillRect(
+        keepX,
+        keepY + i,
+        keepWidth,
+        2,
+        'rgba(0, 0, 0, 0.2)'
+      );
+    }
     
-    // Tower windows
+    // Keep battlements
+    for (let i = 0; i < 5; i++) {
+      this.renderer.fillRect(
+        keepX + (i * 16) + 4,
+        keepY - 10,
+        10,
+        10,
+        darkStone
+      );
+    }
+    
+    // Keep windows
     this.renderer.fillRect(
-      castleX - towerWidth / 2 + 10,
-      castleY - towerHeight / 2 + 20,
-      towerWidth - 20,
+      keepX + 20,
+      keepY + 20,
       15,
-      'rgba(255, 200, 100, 0.2)'
+      25,
+      windowGlow
     );
     
-    // Right tower with windows
     this.renderer.fillRect(
-      castleX + castleWidth - towerWidth / 2,
-      castleY - towerHeight / 2,
-      towerWidth,
-      towerHeight,
-      towerColor
-    );
-    
-    // Tower top
-    this.renderer.fillRect(
-      castleX + castleWidth - towerWidth / 2 - 5,
-      castleY - towerHeight / 2,
-      towerWidth + 10,
-      10,
-      shadowColor
-    );
-    
-    // Tower windows
-    this.renderer.fillRect(
-      castleX + castleWidth - towerWidth / 2 + 10,
-      castleY - towerHeight / 2 + 20,
-      towerWidth - 20,
+      keepX + 45,
+      keepY + 20,
       15,
-      'rgba(255, 200, 100, 0.2)'
+      25,
+      windowGlow
     );
     
-    // Center tower with more detail
     this.renderer.fillRect(
-      castleX + castleWidth / 2 - towerWidth / 2,
-      castleY - towerHeight,
-      towerWidth,
-      towerHeight,
-      towerColor
+      keepX + 30,
+      keepY + 60,
+      20,
+      30,
+      windowGlow
     );
     
-    // Center tower top
-    this.renderer.fillRect(
-      castleX + castleWidth / 2 - towerWidth / 2 - 5,
-      castleY - towerHeight,
-      towerWidth + 10,
-      10,
-      shadowColor
-    );
+    // Keep roof (pointed)
+    for (let i = 0; i < 15; i++) {
+      this.renderer.fillRect(
+        keepX + 10 + i * 4,
+        keepY - 25 + i,
+        keepWidth - 20 - i * 8,
+        5,
+        darkStone
+      );
+    }
     
-    // Center tower windows
-    this.renderer.fillRect(
-      castleX + castleWidth / 2 - towerWidth / 2 + 10,
-      castleY - towerHeight + 20,
-      towerWidth - 20,
-      15,
-      'rgba(255, 200, 100, 0.2)'
-    );
+    // Draw corner towers (4 towers)
+    const towerPositions = [
+      { x: castleX - 25, y: castleY - 40 },                    // Left front
+      { x: castleX + castleWidth - 15, y: castleY - 40 },      // Right front
+      { x: castleX - 15, y: castleY + castleHeight - 60 },     // Left back
+      { x: castleX + castleWidth - 25, y: castleY + castleHeight - 60 } // Right back
+    ];
     
-    // Castle gate
-    const gateWidth = 40;
-    const gateHeight = 60;
+    towerPositions.forEach((pos, index) => {
+      const towerWidth = 40;
+      const towerHeight = 90;
+      
+      // Main tower structure
+      this.renderer.fillRect(
+        pos.x,
+        pos.y,
+        towerWidth,
+        towerHeight,
+        index < 2 ? lightStone : baseColor // Front towers lighter
+      );
+      
+      // Tower stone texture
+      for (let i = 0; i < towerHeight; i += 15) {
+        this.renderer.fillRect(
+          pos.x,
+          pos.y + i,
+          towerWidth,
+          2,
+          'rgba(0, 0, 0, 0.2)'
+        );
+      }
+      
+      // Tower battlements
+      for (let i = 0; i < 3; i++) {
+        this.renderer.fillRect(
+          pos.x + (i * 12) + 2,
+          pos.y - 8,
+          8,
+          8,
+          darkStone
+        );
+      }
+      
+      // Tower conical roof
+      for (let i = 0; i < 12; i++) {
+        this.renderer.fillRect(
+          pos.x - 5 + i,
+          pos.y - 20 + i,
+          towerWidth + 10 - i * 2,
+          4,
+          deepShadow
+        );
+      }
+      
+      // Tower windows (2 per tower)
+      this.renderer.fillRect(
+        pos.x + 10,
+        pos.y + 20,
+        towerWidth - 20,
+        15,
+        windowGlow
+      );
+      
+      this.renderer.fillRect(
+        pos.x + 10,
+        pos.y + 50,
+        towerWidth - 20,
+        15,
+        windowGlow
+      );
+    });
+    
+    // Draw gatehouse (elaborate entrance)
+    const gateWidth = 50;
+    const gateHeight = 70;
+    const gateX = castleX + castleWidth / 2 - gateWidth / 2;
+    const gateY = castleY + castleHeight - gateHeight;
+    
+    // Gatehouse structure
     this.renderer.fillRect(
-      castleX + castleWidth / 2 - gateWidth / 2,
-      castleY + castleHeight - gateHeight,
-      gateWidth,
+      gateX - 10,
+      gateY - 20,
+      gateWidth + 20,
       gateHeight,
-      'rgba(10, 0, 0, 0.9)'
+      lightStone
+    );
+    
+    // Gatehouse battlements
+    for (let i = 0; i < 5; i++) {
+      this.renderer.fillRect(
+        gateX - 5 + (i * 15),
+        gateY - 28,
+        10,
+        8,
+        darkStone
+      );
+    }
+    
+    // Gate opening (archway)
+    this.renderer.fillRect(
+      gateX + 5,
+      gateY + 10,
+      gateWidth - 10,
+      gateHeight - 10,
+      deepShadow
     );
     
     // Gate arch
+    for (let i = 0; i < 5; i++) {
+      this.renderer.fillRect(
+        gateX + 5 + i * 2,
+        gateY + 10,
+        gateWidth - 10 - i * 4,
+        5,
+        darkStone
+      );
+    }
+    
+    // Portcullis (gate bars)
+    for (let i = 0; i < 4; i++) {
+      this.renderer.fillRect(
+        gateX + 10 + i * 10,
+        gateY + 15,
+        2,
+        gateHeight - 15,
+        darkStone
+      );
+    }
+    
+    // Drawbridge
     this.renderer.fillRect(
-      castleX + castleWidth / 2 - gateWidth / 2 - 5,
-      castleY + castleHeight - gateHeight,
-      gateWidth + 10,
-      10,
-      shadowColor
+      gateX + 5,
+      gateY + gateHeight,
+      gateWidth - 10,
+      15,
+      darkStone
     );
     
-    // Windows on castle body
-    const windowSize = 12;
-    const windowSpacing = 40;
+    // Add curtain walls connecting towers
+    // Left wall
+    this.renderer.fillRect(
+      castleX - 15,
+      castleY + 20,
+      20,
+      castleHeight - 80,
+      baseColor
+    );
+    
+    // Right wall
+    this.renderer.fillRect(
+      castleX + castleWidth - 5,
+      castleY + 20,
+      20,
+      castleHeight - 80,
+      baseColor
+    );
+    
+    // Add wall battlements
+    for (let i = 0; i < 3; i++) {
+      // Left wall battlements
+      this.renderer.fillRect(
+        castleX - 15 + i * 7,
+        castleY + 12,
+        5,
+        8,
+        darkStone
+      );
+      
+      // Right wall battlements
+      this.renderer.fillRect(
+        castleX + castleWidth - 5 + i * 7,
+        castleY + 12,
+        5,
+        8,
+        darkStone
+      );
+    }
+    
+    // Add windows to main castle walls
     const windowRows = 2;
-    const windowsPerRow = Math.floor((castleWidth - 100) / windowSpacing);
+    const windowsPerRow = 5;
+    const windowSpacing = castleWidth / (windowsPerRow + 1);
     
     for (let row = 0; row < windowRows; row++) {
       for (let i = 0; i < windowsPerRow; i++) {
-        // Skip windows where the gate is
-        if (row === 1 && i >= Math.floor(windowsPerRow / 2) - 1 && i <= Math.floor(windowsPerRow / 2)) {
+        // Skip windows where the gatehouse is
+        if (row === 1 && i === 2) {
           continue;
         }
         
+        // Gothic style window
+        const winX = castleX + (i + 1) * windowSpacing - 8;
+        const winY = castleY + 30 + row * 50;
+        
+        // Window frame
         this.renderer.fillRect(
-          castleX + 50 + (i * windowSpacing),
-          castleY + 30 + (row * 50),
-          windowSize,
-          windowSize,
-          'rgba(255, 200, 100, 0.2)'
+          winX - 2,
+          winY - 2,
+          16,
+          22,
+          darkStone
+        );
+        
+        // Window light
+        this.renderer.fillRect(
+          winX,
+          winY,
+          12,
+          18,
+          windowGlow
+        );
+        
+        // Window arch
+        this.renderer.fillRect(
+          winX,
+          winY - 4,
+          12,
+          4,
+          darkStone
         );
       }
     }
+    
+    // Add flags on towers
+    const flagPositions = [
+      { x: towerPositions[0].x + 20, y: towerPositions[0].y - 32 },
+      { x: towerPositions[1].x + 20, y: towerPositions[1].y - 32 },
+      { x: keepX + 40, y: keepY - 40 }
+    ];
+    
+    flagPositions.forEach(pos => {
+      // Flagpole
+      this.renderer.fillRect(
+        pos.x,
+        pos.y,
+        2,
+        30,
+        'rgba(100, 100, 100, 0.8)'
+      );
+      
+      // Flag (waving with animation)
+      const waveOffset = Math.sin(this.stateTime * 3) * 2;
+      this.renderer.fillRect(
+        pos.x + 2,
+        pos.y + waveOffset,
+        15,
+        10,
+        'rgba(150, 0, 0, 0.7)'
+      );
+    });
+    
+    // Add moat around castle
+    this.renderer.fillRect(
+      castleX - 40,
+      castleY + castleHeight + 5,
+      castleWidth + 80,
+      15,
+      'rgba(0, 0, 40, 0.3)'
+    );
+    
+    // Moonlight reflection on moat
+    this.renderer.fillRect(
+      castleX + castleWidth / 2 - 30,
+      castleY + castleHeight + 5,
+      60,
+      15,
+      'rgba(200, 200, 255, 0.1)'
+    );
   }
   
   /**
