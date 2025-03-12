@@ -819,8 +819,9 @@ export class Game {
     // Display top 5 scores from our high scores array
     const displayScores = this.highScores.slice(0, 5);
     
-    for (let i = 0; i < displayScores.length; i++) {
-      const score = displayScores[i];
+    // Make sure we always show 5 slots even if we have fewer scores
+    for (let i = 0; i < 5; i++) {
+      const score = i < displayScores.length ? displayScores[i] : { name: '---', score: 0, date: '', wave: 0 };
       // Display rank
       this.renderer.drawText(`${i+1}.`, {
         x: scoreBoxX + 80,
@@ -1253,10 +1254,12 @@ export class Game {
    * Check if current score is a high score
    */
   private isHighScore(): boolean {
-    if (this.highScores.length < 10) {
+    // If we have fewer than 5 scores, any score qualifies
+    if (this.highScores.length < 5) {
       return true;
     }
     
+    // Otherwise, check if the current score is higher than the lowest high score
     return this.player.getScore() > this.highScores[this.highScores.length - 1].score;
   }
   
@@ -1274,9 +1277,9 @@ export class Game {
     this.highScores.push(newScore);
     this.highScores.sort((a, b) => b.score - a.score);
     
-    // Limit to top 10
-    if (this.highScores.length > 10) {
-      this.highScores = this.highScores.slice(0, 10);
+    // Limit to top 5
+    if (this.highScores.length > 5) {
+      this.highScores = this.highScores.slice(0, 5);
     }
     
     // Save to API and local storage
@@ -1297,6 +1300,8 @@ export class Game {
       
       if (response.ok) {
         this.highScores = await response.json();
+        // Also update local storage with the latest scores
+        this.saveHighScoresToLocalStorage();
       } else {
         // Fallback to local storage if API fails
         const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
@@ -1316,6 +1321,17 @@ export class Game {
     } catch (error) {
       console.error('Error loading high scores:', error);
       
+      // Fallback to local storage
+      const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
+      if (savedScores) {
+        try {
+          this.highScores = JSON.parse(savedScores);
+          return;
+        } catch (e) {
+          console.error('Error parsing local storage high scores:', e);
+        }
+      }
+      
       // Fallback to defaults if everything fails
       this.highScores = [
         { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
@@ -1329,8 +1345,15 @@ export class Game {
    * Save high scores to API and local storage as backup
    */
   private async saveHighScores(): Promise<void> {
+    // Keep only the top 5 scores
+    this.highScores.sort((a, b) => b.score - a.score);
+    this.highScores = this.highScores.slice(0, 5);
+    
     try {
-      // Save the entire high scores array to API
+      // Save to local storage first as a reliable backup
+      this.saveHighScoresToLocalStorage();
+      
+      // Then try to save to the API
       const response = await fetch('/api/highscores', {
         method: 'POST',
         headers: {
@@ -1343,16 +1366,15 @@ export class Game {
         // Update local high scores with the sorted list from the server
         this.highScores = await response.json();
         console.log('High scores saved successfully:', this.highScores);
+        
+        // Update local storage with the latest from the server
+        this.saveHighScoresToLocalStorage();
       } else {
         console.error('Failed to save high scores to API:', await response.text());
       }
-      
-      // Also save to local storage as backup
-      this.saveHighScoresToLocalStorage();
     } catch (error) {
       console.error('Error saving high scores to API:', error);
-      // Fallback to local storage only
-      this.saveHighScoresToLocalStorage();
+      // Local storage was already updated above, so no need to call again
     }
   }
   

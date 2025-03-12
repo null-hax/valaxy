@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
 // Define the high score interface
 interface HighScore {
@@ -10,47 +8,48 @@ interface HighScore {
   wave: number;
 }
 
-// Path to the high scores JSON file
-const dataFilePath = path.join(process.cwd(), 'data', 'highscores.json');
+// In-memory cache for high scores (will reset on server restart)
+// This is a fallback for when we can't use persistent storage
+let highScoresCache: HighScore[] = [
+  { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
+  { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
+  { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
+];
 
-// Ensure the data directory exists
-const ensureDataDir = () => {
-  const dataDir = path.join(process.cwd(), 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-};
+// Maximum number of high scores to keep
+const MAX_HIGH_SCORES = 5;
 
-// Get high scores from the file
-const getHighScores = (): HighScore[] => {
-  ensureDataDir();
-  
-  if (!fs.existsSync(dataFilePath)) {
-    // Default high scores if file doesn't exist
-    const defaultScores: HighScore[] = [
-      { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
-      { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
-      { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
-    ];
-    fs.writeFileSync(dataFilePath, JSON.stringify(defaultScores, null, 2));
-    return defaultScores;
-  }
-  
+// Get high scores
+const getHighScores = async (): Promise<HighScore[]> => {
   try {
-    const data = fs.readFileSync(dataFilePath, 'utf8');
-    return JSON.parse(data);
+    // Try to get high scores from environment variable
+    const envScores = process.env.VALAXY_HIGH_SCORES;
+    if (envScores) {
+      return JSON.parse(envScores);
+    }
+    
+    // Return the in-memory cache as fallback
+    return highScoresCache;
   } catch (error) {
     console.error('Error reading high scores:', error);
-    return [];
+    return highScoresCache;
   }
 };
 
-// Save high scores to the file
-const saveHighScores = (scores: HighScore[]) => {
-  ensureDataDir();
-  
+// Save high scores
+const saveHighScores = async (scores: HighScore[]): Promise<boolean> => {
   try {
-    fs.writeFileSync(dataFilePath, JSON.stringify(scores, null, 2));
+    // Keep only the top MAX_HIGH_SCORES scores
+    const topScores = scores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_HIGH_SCORES);
+    
+    // Update the in-memory cache
+    highScoresCache = topScores;
+    
+    // In a production environment, you would save to a database here
+    // For example, using Vercel KV, MongoDB, etc.
+    
     return true;
   } catch (error) {
     console.error('Error saving high scores:', error);
@@ -60,7 +59,7 @@ const saveHighScores = (scores: HighScore[]) => {
 
 // GET handler to retrieve high scores
 export async function GET() {
-  const highScores = getHighScores();
+  const highScores = await getHighScores();
   return NextResponse.json(highScores);
 }
 
@@ -98,7 +97,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Get current high scores
-      allScores = getHighScores();
+      allScores = await getHighScores();
       
       // Add the new score
       allScores.push(newScore);
@@ -107,11 +106,12 @@ export async function POST(request: NextRequest) {
     // Sort by score (highest first)
     allScores.sort((a, b) => b.score - a.score);
     
-    // Keep only the top 10 scores
-    allScores = allScores.slice(0, 10);
+    // Keep only the top MAX_HIGH_SCORES scores
+    allScores = allScores.slice(0, MAX_HIGH_SCORES);
     
     // Save the updated scores
-    if (saveHighScores(allScores)) {
+    const saveResult = await saveHighScores(allScores);
+    if (saveResult) {
       return NextResponse.json(allScores);
     } else {
       return NextResponse.json(
