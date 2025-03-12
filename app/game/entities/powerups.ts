@@ -248,7 +248,7 @@ export class PowerUpManager {
   private powerUps: PowerUp[] = [];
   private spawnTimer: number = 0;
   private spawnInterval: number = 25; // Seconds between power-up spawns
-  private spawnChance: number = 0.2; // 20% chance to spawn a power-up
+  private spawnChance: number = 0.1; // 10% chance to spawn a power-up
 
   constructor(
     private soundEngine: SoundEngine,
