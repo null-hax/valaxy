@@ -37,6 +37,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+        
+        {/* Favicon */}
+        <link rel="icon" href="/blooddrop.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/blooddrop.svg" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
