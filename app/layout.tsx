@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Valaxy - Vampire Underworld Arcade Game",
-  description: "An authentic 80s-style arcade game with a Vampire Underworld theme by West Coast AI Labs",
-  keywords: ["arcade", "retro", "game", "vampire", "galaga", "8-bit"],
+  title: "VALAXY: BLOODLUST ARCADE",
+  description: "Enter the Valaxy! Blast through waves of relentless enemies in a pixel-perfect retro nightmare!",
+  keywords: ["arcade", "retro", "game", "galaga", "8-bit", "bloodlust", "pixel", "horror"],
   authors: [{ name: "West Coast AI Labs" }],
   openGraph: {
-    title: "Valaxy - Vampire Underworld Arcade Game",
-    description: "An authentic 80s-style arcade game with a Vampire Underworld theme",
-    images: ['/valaxy-preview.png'],
+    title: "VALAXY: BLOODLUST ARCADE",
+    description: "Enter the Valaxy! Blast through waves of relentless enemies in a pixel-perfect retro nightmare!",
+    images: ['/valaxy-preview.png', '/blooddrop-meta.svg'],
     type: 'website',
   },
 };
