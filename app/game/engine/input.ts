@@ -111,6 +111,8 @@ export class InputHandler {
    * Check if space key is pressed or held (for high score entry)
    */
   public isSpacePressed(): boolean {
+    // For debugging
+    console.log('Space key state:', this.keyStates['fire']);
     return this.keyStates['fire'] === KeyState.PRESSED || this.keyStates['fire'] === KeyState.HELD;
   }
   

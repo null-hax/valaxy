@@ -1058,4 +1058,11 @@ export class Enemy implements Collidable {
   public setGridPosition(position: EnemyFormationPosition): void {
     this.gridPosition = position;
   }
+  
+  /**
+   * Clear all projectiles
+   */
+  public clearProjectiles(): void {
+    this.projectiles = [];
+  }
 }

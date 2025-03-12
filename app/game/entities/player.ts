@@ -628,4 +628,11 @@ export class Player implements Collidable {
   public getWeaponUpgradeTime(): number {
     return this.silverCrossUpgradeTimer;
   }
+  
+  /**
+   * Reset projectiles (clear all active projectiles)
+   */
+  public resetProjectiles(): void {
+    this.projectiles = [];
+  }
 }

@@ -92,6 +92,9 @@ export class Game {
     // Set up event handlers
     this.setupEventHandlers();
     
+    // Initialize direct keyboard handler for high score entry
+    this.boundKeyDownHandler = this.handleHighScoreKeyDown.bind(this);
+    
     // Set the game loop update callback
     this.gameLoop.setUpdateCallback(this.update.bind(this));
     
@@ -245,8 +248,8 @@ export class Game {
   private updateGameStart(deltaTime: number, inputState: InputState): void {
     this.stateTime += deltaTime;
     
-    // Transition to playing after intro animation
-    if (this.stateTime >= 2) {
+    // Transition to playing after intro animation and countdown
+    if (this.stateTime >= 3) {
       this.state = GameState.PLAYING;
       this.stateTime = 0;
       
@@ -387,6 +390,16 @@ export class Game {
       this.level++;
       this.formationManager.createWave();
       this.powerUpManager.clearPowerUps(); // Reset powerups between rounds
+      
+      // Reset player projectiles between waves
+      this.player.resetProjectiles();
+      
+      // Reset enemy projectiles by clearing them from all enemies
+      const enemies = this.formationManager.getEnemies();
+      for (const enemy of enemies) {
+        enemy.clearProjectiles();
+      }
+      
       this.state = GameState.GAME_START;
       this.stateTime = 0;
     }
@@ -400,12 +413,99 @@ export class Game {
     
     // Check if score qualifies for high score
     if (this.stateTime >= 3) {
-      if (this.isHighScore()) {
-        this.state = GameState.HIGH_SCORE;
-      } else {
-        this.state = GameState.TITLE;
-      }
+      // Reset player name and position for high score entry
+      this.playerName = '';
+      this.nameEntryPosition = 0;
+      
+      // For debugging: Always go to high score screen
+      console.log('Game over - Always transitioning to HIGH_SCORE state for debugging');
+      this.state = GameState.HIGH_SCORE;
       this.stateTime = 0;
+      
+      // Add direct keyboard event listener for high score entry
+      window.addEventListener('keydown', this.boundKeyDownHandler);
+      console.log('Added high score keyboard handler');
+    }
+  }
+  
+  /**
+   * Handle keydown events specifically for high score entry
+   */
+  private handleHighScoreKeyDown(e: KeyboardEvent): void {
+    console.log('High score key down:', e.key, 'State:', this.state);
+    
+    // Only process if we're in the high score state
+    if (this.state !== GameState.HIGH_SCORE) return;
+    
+    // Prevent default to avoid browser scrolling etc.
+    e.preventDefault();
+    
+    if (this.nameEntryPosition >= this.MAX_NAME_LENGTH) return;
+    
+    // Handle letter/number keys
+    if (/^[a-zA-Z0-9]$/.test(e.key)) {
+      // Convert to uppercase
+      const char = e.key.toUpperCase();
+      
+      // Update the current character
+      if (this.playerName.length <= this.nameEntryPosition) {
+        this.playerName += char;
+      } else {
+        this.playerName = this.playerName.substring(0, this.nameEntryPosition) +
+                          char +
+                          this.playerName.substring(this.nameEntryPosition + 1);
+      }
+      
+      console.log('Updated name to:', this.playerName);
+      this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
+    }
+    // Handle arrow keys
+    else if (e.key === 'ArrowUp') {
+      const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
+      const currentIndex = this.ALLOWED_CHARS.indexOf(currentChar);
+      const newIndex = (currentIndex + 1) % this.ALLOWED_CHARS.length;
+      this.playerName = this.playerName.substring(0, this.nameEntryPosition) +
+                        this.ALLOWED_CHARS.charAt(newIndex) +
+                        this.playerName.substring(this.nameEntryPosition + 1);
+      console.log('Changed character to:', this.playerName);
+      this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
+    }
+    else if (e.key === 'ArrowDown') {
+      const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
+      const currentIndex = this.ALLOWED_CHARS.indexOf(currentChar);
+      const newIndex = (currentIndex - 1 + this.ALLOWED_CHARS.length) % this.ALLOWED_CHARS.length;
+      this.playerName = this.playerName.substring(0, this.nameEntryPosition) +
+                        this.ALLOWED_CHARS.charAt(newIndex) +
+                        this.playerName.substring(this.nameEntryPosition + 1);
+      console.log('Changed character to:', this.playerName);
+      this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
+    }
+    // Handle Enter/Space to confirm character
+    else if (e.key === 'Enter' || e.key === ' ') {
+      // If no character is selected, default to 'A'
+      if (this.nameEntryPosition >= this.playerName.length) {
+        this.playerName += 'A';
+      }
+      
+      this.nameEntryPosition++;
+      console.log('Advanced to position:', this.nameEntryPosition);
+      this.soundEngine.playSound(SoundEffect.MENU_SELECT);
+      
+      // If we've entered all characters, submit the high score
+      if (this.nameEntryPosition >= this.MAX_NAME_LENGTH) {
+        console.log('Name entry complete, submitting high score');
+        setTimeout(() => {
+          this.addHighScore();
+          
+          // Remove keyboard handler
+          window.removeEventListener('keydown', this.boundKeyDownHandler);
+          console.log('Removed high score keyboard handler');
+          
+          // Return to title screen
+          this.state = GameState.TITLE;
+          this.stateTime = 0;
+        }, 500);
+      }
     }
   }
   
@@ -419,11 +519,18 @@ export class Game {
   private confirmDebounce: number = 0;
   private readonly CONFIRM_DEBOUNCE_TIME: number = 0.5; // 500ms debounce for confirmation
   
+  // Direct keyboard handling for high score entry
+  private boundKeyDownHandler: (e: KeyboardEvent) => void;
+  
   /**
    * Update high score entry state
    */
   private updateHighScore(deltaTime: number, inputState: InputState): void {
     this.stateTime += deltaTime;
+    
+    console.log('In HIGH_SCORE state, nameEntryPosition:', this.nameEntryPosition,
+                'playerName:', this.playerName,
+                'inputState:', JSON.stringify(inputState));
     
     // Update debounce timers
     if (this.nameEntryDebounce > 0) {
@@ -439,16 +546,19 @@ export class Game {
       // Initialize first character if empty
       if (this.playerName.length === 0) {
         this.playerName = 'A';
+        console.log('Initialized playerName to:', this.playerName);
       }
       
       // Move selection up/down through characters with debounce
       if (inputState.up === KeyState.PRESSED || (inputState.up === KeyState.HELD && this.nameEntryDebounce <= 0)) {
+        console.log('UP pressed/held');
         const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
         const currentIndex = this.ALLOWED_CHARS.indexOf(currentChar);
         const newIndex = (currentIndex + 1) % this.ALLOWED_CHARS.length;
         this.playerName = this.playerName.substring(0, this.nameEntryPosition) +
                           this.ALLOWED_CHARS.charAt(newIndex) +
                           this.playerName.substring(this.nameEntryPosition + 1);
+        console.log('Changed character to:', this.playerName);
         this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
         // Reset state time to prevent auto-advancing
         this.stateTime = 0;
@@ -457,12 +567,14 @@ export class Game {
       }
       
       if (inputState.down === KeyState.PRESSED || (inputState.down === KeyState.HELD && this.nameEntryDebounce <= 0)) {
+        console.log('DOWN pressed/held');
         const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
         const currentIndex = this.ALLOWED_CHARS.indexOf(currentChar);
         const newIndex = (currentIndex - 1 + this.ALLOWED_CHARS.length) % this.ALLOWED_CHARS.length;
         this.playerName = this.playerName.substring(0, this.nameEntryPosition) +
                           this.ALLOWED_CHARS.charAt(newIndex) +
                           this.playerName.substring(this.nameEntryPosition + 1);
+        console.log('Changed character to:', this.playerName);
         this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
         // Reset state time to prevent auto-advancing
         this.stateTime = 0;
@@ -474,15 +586,20 @@ export class Game {
       const confirmPressed =
           inputState.fire === KeyState.PRESSED ||
           inputState.start === KeyState.PRESSED;
+      
+      // Log space key state
+      console.log('Space pressed:', this.inputHandler.isSpacePressed(), 'confirmDebounce:', this.confirmDebounce);
           
       // Special check for space key since it's important for confirmation
       if (this.inputHandler.isSpacePressed() && this.confirmDebounce <= 0) {
+        console.log('SPACE pressed, confirming character');
         // If no character is selected, default to 'A'
         if (this.nameEntryPosition >= this.playerName.length) {
           this.playerName += 'A';
         }
         
         this.nameEntryPosition++;
+        console.log('Advanced to position:', this.nameEntryPosition);
         this.soundEngine.playSound(SoundEffect.MENU_SELECT);
         // Reset state time to prevent auto-advancing
         this.stateTime = 0;
@@ -492,12 +609,14 @@ export class Game {
       }
           
       if (confirmPressed && this.confirmDebounce <= 0) {
+        console.log('FIRE/START pressed, confirming character');
         // If no character is selected, default to 'A'
         if (this.nameEntryPosition >= this.playerName.length) {
           this.playerName += 'A';
         }
         
         this.nameEntryPosition++;
+        console.log('Advanced to position:', this.nameEntryPosition);
         this.soundEngine.playSound(SoundEffect.MENU_SELECT);
         // Reset state time to prevent auto-advancing
         this.stateTime = 0;
@@ -505,8 +624,10 @@ export class Game {
         this.confirmDebounce = this.CONFIRM_DEBOUNCE_TIME;
       }
     } else {
+      console.log('Name entry complete:', this.playerName);
       // Name entry complete, add high score after a short delay
       if (this.stateTime >= 1) {
+        console.log('Adding high score and returning to title screen');
         this.addHighScore();
         
         // Reload high scores before returning to title screen
@@ -515,6 +636,10 @@ export class Game {
         }).catch(err => {
           console.error('Failed to reload high scores:', err);
         });
+        
+        // Remove keyboard handler
+        window.removeEventListener('keydown', this.boundKeyDownHandler);
+        console.log('Removed high score keyboard handler from updateHighScore');
         
         this.state = GameState.TITLE;
         this.stateTime = 0;
@@ -1461,6 +1586,80 @@ export class Game {
     
     // Draw score and lives
     this.renderHUD();
+    
+    // Draw countdown if in GAME_START state
+    if (this.state === GameState.GAME_START) {
+      this.renderCountdown();
+    }
+  }
+  
+  /**
+   * Render countdown before wave starts
+   */
+  private renderCountdown(): void {
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+    
+    // Calculate countdown number (3, 2, 1)
+    const countdown = Math.ceil(3 - this.stateTime);
+    
+    if (countdown > 0) {
+      // Semi-transparent background
+      this.renderer.fillRect(
+        centerX - 100,
+        centerY - 100,
+        200,
+        200,
+        'rgba(0, 0, 0, 0.7)'
+      );
+      
+      // Draw border
+      this.renderer.strokeRect(
+        centerX - 100,
+        centerY - 100,
+        200,
+        200,
+        '#FF0000',
+        3
+      );
+      
+      // Draw "WAVE" text
+      this.renderer.drawText(`WAVE ${this.level}`, {
+        x: centerX,
+        y: centerY - 40,
+        color: '#FFFFFF',
+        fontSize: 36,
+        align: 'center',
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+      
+      // Draw countdown number with pulsing effect
+      const pulseScale = 1 + Math.sin(this.stateTime * 10) * 0.2;
+      const fontSize = Math.floor(72 * pulseScale);
+      
+      this.renderer.drawText(countdown.toString(), {
+        x: centerX,
+        y: centerY + 20,
+        color: '#FF0000',
+        fontSize: fontSize,
+        align: 'center',
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true
+      });
+      
+      // Draw "GET READY" text
+      this.renderer.drawText("GET READY", {
+        x: centerX,
+        y: centerY + 80,
+        color: '#FFFF00',
+        fontSize: 24,
+        align: 'center',
+        fontFamily: 'Press Start 2P, monospace',
+        pixelated: true,
+        alpha: Math.sin(this.stateTime * 5) * 0.5 + 0.5 // Blinking effect
+      });
+    }
   }
   
   /**
@@ -1858,16 +2057,25 @@ export class Game {
    * Check if current score is a high score
    */
   private isHighScore(): boolean {
+    // Get the player's score
     const playerScore = this.player.getScore();
+    
+    // Always log the score for debugging
+    console.log('Checking high score:', playerScore, 'Current high scores:', this.highScores);
     
     // If we have fewer than 5 scores, any score qualifies
     if (this.highScores.length < 5) {
+      console.log('Less than 5 high scores, qualifying automatically');
       return true;
     }
     
     // Otherwise, check if the current score is higher than the lowest high score
     const sortedScores = [...this.highScores].sort((a, b) => b.score - a.score);
-    return playerScore > sortedScores[Math.min(4, sortedScores.length - 1)].score;
+    const lowestHighScore = sortedScores[Math.min(4, sortedScores.length - 1)].score;
+    const isHighScore = playerScore > lowestHighScore;
+    
+    console.log('Lowest high score:', lowestHighScore, 'Is high score:', isHighScore);
+    return isHighScore;
   }
   
   /**
