@@ -282,35 +282,4 @@
   }
 }
 
-/* Blood drip animation for dramatic elements */
-@keyframes blooddrip {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 0 100px;
-  }
-}
-
-.blood-drips {
-  position: relative;
-}
-
-.blood-drips::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: -50px;
-  background-image:
-    linear-gradient(to bottom,
-      transparent 0%,
-      transparent 90%,
-      rgba(153, 0, 0, 0.7) 95%,
-      rgba(153, 0, 0, 0.4) 100%);
-  background-size: 100% 100px;
-  animation: blooddrip 10s linear infinite;
-  pointer-events: none;
-  z-index: 5;
-}
+/* Blood drip animation removed as requested */

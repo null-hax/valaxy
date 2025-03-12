@@ -569,9 +569,6 @@ export class Player implements Collidable {
    */
   public activatePowerUp(type: PowerUpType): void {
     switch (type) {
-      case PowerUpType.GARLIC:
-        this.activateGarlicAttack();
-        break;
       case PowerUpType.HOLY_WATER:
         this.activateHolyWaterShield();
         break;
@@ -583,14 +580,6 @@ export class Player implements Collidable {
         this.soundEngine.playSound(SoundEffect.POWER_UP);
         break;
     }
-  }
-
-  /**
-   * Activate garlic area attack (damages all enemies on screen)
-   */
-  private activateGarlicAttack(): void {
-    // This is just a visual effect - the actual damage is handled in gameState.ts
-    this.soundEngine.playSound(SoundEffect.POWER_UP);
   }
 
   /**
@@ -617,5 +606,26 @@ export class Player implements Collidable {
    */
   public hasShield(): boolean {
     return this.hasHolyWaterShield;
+  }
+  
+  /**
+   * Get shield time remaining
+   */
+  public getShieldTime(): number {
+    return this.holyWaterShieldTimer;
+  }
+  
+  /**
+   * Check if player has silver cross weapon upgrade active
+   */
+  public hasWeaponUpgrade(): boolean {
+    return this.hasSilverCrossUpgrade;
+  }
+  
+  /**
+   * Get weapon upgrade time remaining
+   */
+  public getWeaponUpgradeTime(): number {
+    return this.silverCrossUpgradeTimer;
   }
 }

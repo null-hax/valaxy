@@ -87,13 +87,25 @@ export class FormationManager {
    * Create the enemy layout for the current wave
    */
   private createWaveLayout(): void {
-    // Different layouts based on wave number
-    if (this.waveCount === 1) {
-      this.createBasicLayout();
-    } else if (this.waveCount === 2) {
-      this.createAdvancedLayout();
+    // Check for special boss waves
+    if (this.waveCount % 20 === 0) {
+      // Mega-boss wave (every 20 levels)
+      this.createMegaBossLayout();
+    } else if (this.waveCount % 10 === 0) {
+      // Boss wave (every 10 levels)
+      this.createBossLayout();
+    } else if (this.waveCount % 5 === 0) {
+      // Mini-boss wave (every 5 levels)
+      this.createMiniBossLayout();
     } else {
-      this.createChallengeLayout();
+      // Regular waves
+      if (this.waveCount === 1) {
+        this.createBasicLayout();
+      } else if (this.waveCount === 2) {
+        this.createAdvancedLayout();
+      } else {
+        this.createChallengeLayout();
+      }
     }
   }
   
@@ -167,8 +179,8 @@ export class FormationManager {
     // Middle rows: Alternating pattern of enemies
     for (let row = 1; row < 3; row++) {
       for (let col = 0; col < this.config.cols; col++) {
-        const type = (col + row) % 2 === 0 
-          ? EnemyType.VAMPIRE_BAT 
+        const type = (col + row) % 2 === 0
+          ? EnemyType.VAMPIRE_BAT
           : EnemyType.BLOOD_LORD;
         this.addEnemy(type, row, col);
       }
@@ -177,10 +189,179 @@ export class FormationManager {
     // Bottom rows: Mix of Basic Vampires and Vampire Bats
     for (let row = 3; row < this.config.rows; row++) {
       for (let col = 0; col < this.config.cols; col++) {
-        const type = col % 3 === 0 
-          ? EnemyType.VAMPIRE_BAT 
+        const type = col % 3 === 0
+          ? EnemyType.VAMPIRE_BAT
           : EnemyType.BASIC_VAMPIRE;
         this.addEnemy(type, row, col);
+      }
+    }
+  }
+  
+  /**
+   * Create a mini-boss layout (for every 5th wave)
+   */
+  private createMiniBossLayout(): void {
+    // Mini-boss in the center of the top row
+    this.addEnemy(EnemyType.MINI_BOSS, 0, Math.floor(this.config.cols / 2));
+    
+    // Blood Lords flanking the mini-boss
+    this.addEnemy(EnemyType.BLOOD_LORD, 0, Math.floor(this.config.cols / 2) - 2);
+    this.addEnemy(EnemyType.BLOOD_LORD, 0, Math.floor(this.config.cols / 2) + 2);
+    
+    // Middle rows: Vampire Bats in a protective formation
+    for (let row = 1; row < 3; row++) {
+      for (let col = 0; col < this.config.cols; col++) {
+        // Create a V-shaped formation
+        if (col >= Math.floor(this.config.cols / 2) - row &&
+            col <= Math.floor(this.config.cols / 2) + row) {
+          this.addEnemy(EnemyType.VAMPIRE_BAT, row, col);
+        }
+      }
+    }
+    
+    // Bottom rows: Mix of Basic Vampires and Vampire Bats
+    for (let row = 3; row < this.config.rows; row++) {
+      for (let col = 0; col < this.config.cols; col++) {
+        // More enemies at higher wave numbers
+        if ((col + row) % Math.max(1, 5 - Math.floor(this.waveCount / 5)) === 0) {
+          const type = (col + row) % 2 === 0
+            ? EnemyType.VAMPIRE_BAT
+            : EnemyType.BASIC_VAMPIRE;
+          this.addEnemy(type, row, col);
+        }
+      }
+    }
+    
+    // Add synchronized movement patterns to some enemies
+    this.addSynchronizedMovement();
+  }
+  
+  /**
+   * Create a boss layout (for every 10th wave)
+   */
+  private createBossLayout(): void {
+    // Boss in the center of the top row
+    this.addEnemy(EnemyType.BOSS, 0, Math.floor(this.config.cols / 2));
+    
+    // Mini-bosses flanking the boss
+    if (Math.floor(this.config.cols / 2) - 2 >= 0) {
+      this.addEnemy(EnemyType.MINI_BOSS, 0, Math.floor(this.config.cols / 2) - 2);
+    }
+    
+    if (Math.floor(this.config.cols / 2) + 2 < this.config.cols) {
+      this.addEnemy(EnemyType.MINI_BOSS, 0, Math.floor(this.config.cols / 2) + 2);
+    }
+    
+    // Middle rows: Blood Lords in a protective formation
+    for (let row = 1; row < 3; row++) {
+      for (let col = 0; col < this.config.cols; col++) {
+        // Create a diamond-shaped formation
+        if (Math.abs(col - Math.floor(this.config.cols / 2)) <= 2 - row % 2) {
+          this.addEnemy(EnemyType.BLOOD_LORD, row, col);
+        }
+      }
+    }
+    
+    // Bottom rows: Dense formation of Vampire Bats and Basic Vampires
+    for (let row = 3; row < this.config.rows; row++) {
+      for (let col = 0; col < this.config.cols; col++) {
+        // Skip some positions for a more interesting pattern
+        if ((col + row) % 2 === 0) {
+          const type = col % 2 === 0
+            ? EnemyType.VAMPIRE_BAT
+            : EnemyType.BASIC_VAMPIRE;
+          this.addEnemy(type, row, col);
+        }
+      }
+    }
+    
+    // Add synchronized movement patterns to some enemies
+    this.addSynchronizedMovement();
+  }
+  
+  /**
+   * Create a mega-boss layout (for every 20th wave)
+   */
+  private createMegaBossLayout(): void {
+    // Mega-boss in the center of the top row
+    this.addEnemy(EnemyType.MEGA_BOSS, 0, Math.floor(this.config.cols / 2));
+    
+    // Bosses flanking the mega-boss (if there's room)
+    if (this.config.cols >= 7) {
+      this.addEnemy(EnemyType.BOSS, 0, 1);
+      this.addEnemy(EnemyType.BOSS, 0, this.config.cols - 2);
+    }
+    
+    // Middle rows: Mini-bosses and Blood Lords in a protective formation
+    for (let row = 1; row < 3; row++) {
+      for (let col = 0; col < this.config.cols; col++) {
+        // Create a complex formation
+        if (col % 3 === row % 3) {
+          // Mini-bosses at key positions
+          if ((col === 1 || col === this.config.cols - 2) && row === 1) {
+            this.addEnemy(EnemyType.MINI_BOSS, row, col);
+          } else {
+            this.addEnemy(EnemyType.BLOOD_LORD, row, col);
+          }
+        }
+      }
+    }
+    
+    // Bottom rows: Dense formation of all enemy types
+    for (let row = 3; row < this.config.rows; row++) {
+      for (let col = 0; col < this.config.cols; col++) {
+        // Create a full formation for the mega-boss
+        let type = EnemyType.BASIC_VAMPIRE;
+        
+        // Determine enemy type based on position
+        if ((col + row) % 3 === 0) {
+          type = EnemyType.VAMPIRE_BAT;
+        } else if ((col + row) % 5 === 0) {
+          type = EnemyType.BLOOD_LORD;
+        }
+        
+        this.addEnemy(type, row, col);
+      }
+    }
+    
+    // Add synchronized movement patterns to some enemies
+    this.addSynchronizedMovement();
+  }
+  
+  /**
+   * Add synchronized movement patterns to enemies
+   * This creates more interesting and coordinated enemy movements
+   */
+  private addSynchronizedMovement(): void {
+    // Get all active enemies
+    const activeEnemies = this.enemies.filter(enemy => enemy.isActive());
+    
+    // Skip if there are too few enemies
+    if (activeEnemies.length < 3) return;
+    
+    // Determine which enemies to give synchronized movement
+    const syncCount = Math.min(
+      Math.floor(activeEnemies.length / 3),
+      Math.floor(this.waveCount / 2)
+    );
+    
+    // Create groups of enemies for synchronized movement
+    for (let i = 0; i < syncCount; i++) {
+      // Select a random pattern
+      const pattern = Math.random() < 0.5 ? MovementPattern.CIRCLE : MovementPattern.PATROL;
+      
+      // Find enemies in the same row or column
+      const row = Math.floor(Math.random() * this.config.rows);
+      const rowEnemies = this.enemies.filter(e => {
+        const pos = e.getGridPosition();
+        return e.isActive() && pos.row === row;
+      });
+      
+      // Apply the pattern to these enemies
+      if (rowEnemies.length >= 2) {
+        for (const enemy of rowEnemies) {
+          enemy.setMovementPattern(pattern);
+        }
       }
     }
   }

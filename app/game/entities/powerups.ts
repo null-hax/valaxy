@@ -9,7 +9,6 @@ import { SoundEffect, SoundEngine } from '../sounds/soundEngine';
 
 // Power-up types
 export enum PowerUpType {
-  GARLIC,         // Area attack that damages all enemies on screen
   HOLY_WATER,     // Temporary shield
   SILVER_CROSS,   // Weapon upgrade (faster firing)
   EXTRA_LIFE      // Gives an extra life
@@ -88,9 +87,6 @@ export class PowerUp implements Collidable {
 
     // Draw based on power-up type
     switch (this.type) {
-      case PowerUpType.GARLIC:
-        this.drawGarlic(renderer, pulseProgress);
-        break;
       case PowerUpType.HOLY_WATER:
         this.drawHolyWater(renderer, pulseProgress);
         break;
@@ -103,30 +99,7 @@ export class PowerUp implements Collidable {
     }
   }
 
-  /**
-   * Draw garlic power-up
-   */
-  private drawGarlic(renderer: Renderer, pulseProgress: number): void {
-    const centerX = this.x + this.width / 2;
-    const centerY = this.y + this.height / 2;
-    const radius = 10 + pulseProgress * 2;
-
-    // Garlic bulb (white with slight yellow tint)
-    renderer.fillCircle(centerX, centerY, radius, '#FFFFDD');
-    
-    // Garlic details
-    const segments = 5;
-    for (let i = 0; i < segments; i++) {
-      const angle = (Math.PI * 2 * i / segments) + (this.animationFrame * 0.2);
-      const segX = centerX + Math.cos(angle) * radius * 0.7;
-      const segY = centerY + Math.sin(angle) * radius * 0.7;
-      
-      renderer.fillCircle(segX, segY, radius * 0.4, '#EEEEDD');
-    }
-    
-    // Stem
-    renderer.fillRect(centerX - 1, centerY - radius - 4, 2, 4, '#AAAA88');
-  }
+  // Bomb powerup (garlic) removed as requested
 
   /**
    * Draw holy water power-up
@@ -303,14 +276,11 @@ export class PowerUpManager {
       if (enemyPoints >= 400 && roll < 0.2) {
         // 20% chance for extra life from high-value enemies
         type = PowerUpType.EXTRA_LIFE;
-      } else if (roll < 0.4) {
-        // 40% chance for garlic
-        type = PowerUpType.GARLIC;
-      } else if (roll < 0.7) {
-        // 30% chance for holy water
+      } else if (roll < 0.5) {
+        // 50% chance for holy water
         type = PowerUpType.HOLY_WATER;
       } else {
-        // 30% chance for silver cross
+        // 50% chance for silver cross
         type = PowerUpType.SILVER_CROSS;
       }
       
@@ -326,7 +296,6 @@ export class PowerUpManager {
     const y = 50 + Math.random() * 100; // Spawn in upper part of screen
     
     const types = [
-      PowerUpType.GARLIC,
       PowerUpType.HOLY_WATER,
       PowerUpType.SILVER_CROSS
     ];

@@ -62,22 +62,49 @@ export class Projectile implements Collidable {
         '#CC0000' // Lighter red for the trail
       );
     } else {
-      // Player projectile (silver stake)
+      // Player projectile (skinny, sharp dagger)
+      
+      // Dagger blade (silver) - made skinnier
       renderer.fillRect(
-        this.x,
+        this.x + this.width/2 - 1,
         this.y,
-        this.width,
-        this.height,
-        this.color
+        2, // Skinny width of 2 pixels
+        this.height - 3,
+        '#DDDDDD' // Silver color
       );
       
-      // Stake tip
+      // Dagger tip (sharp point) - using multiple rectangles to create a triangle shape
       renderer.fillRect(
-        this.x,
-        this.y,
-        this.width,
-        this.height / 4,
+        this.x + this.width/2 - 3, // Left side of tip
+        this.y - 4,
+        6, // Width of tip base
+        2, // Height of tip base
         '#FFFFFF' // Bright white for the tip
+      );
+      
+      renderer.fillRect(
+        this.x + this.width/2 - 2, // Narrower part of tip
+        this.y - 6,
+        4, // Width
+        2, // Height
+        '#FFFFFF'
+      );
+      
+      renderer.fillRect(
+        this.x + this.width/2 - 1, // Narrowest part of tip
+        this.y - 8,
+        2, // Width
+        2, // Height
+        '#FFFFFF'
+      );
+      
+      // Dagger handle/hilt (gold)
+      renderer.fillRect(
+        this.x + this.width/2 - 3,
+        this.y + this.height - 3,
+        6,
+        3,
+        '#FFCC00' // Gold color for handle
       );
     }
   }

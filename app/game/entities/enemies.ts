@@ -12,7 +12,10 @@ import { Projectile } from './projectiles';
 export enum EnemyType {
   BASIC_VAMPIRE,   // Basic enemy (like Galaga's bee)
   VAMPIRE_BAT,     // Mid-tier enemy (like Galaga's butterfly)
-  BLOOD_LORD       // Boss enemy (like Galaga's flagship)
+  BLOOD_LORD,      // Boss enemy (like Galaga's flagship)
+  MINI_BOSS,       // Mini-boss (appears every 5 levels)
+  BOSS,            // Boss (appears every 10 levels)
+  MEGA_BOSS        // Mega-boss (appears every 20 levels)
 }
 
 // Enemy movement patterns
@@ -140,6 +143,39 @@ export class Enemy implements Collidable {
         this.firingEnabled = true;
         this.fireRate = 2;
         this.diveSpeed = 120; // Slower but more threatening
+        break;
+        
+      case EnemyType.MINI_BOSS:
+        this.width = 40;
+        this.height = 40;
+        this.health = 3; // Takes three hits
+        this.points = 800;
+        this.frameCount = 2;
+        this.firingEnabled = true;
+        this.fireRate = 1.5; // Fires more often
+        this.diveSpeed = 100; // Slower but more threatening
+        break;
+        
+      case EnemyType.BOSS:
+        this.width = 48;
+        this.height = 48;
+        this.health = 5; // Takes five hits
+        this.points = 1500;
+        this.frameCount = 3;
+        this.firingEnabled = true;
+        this.fireRate = 1.2; // Fires even more often
+        this.diveSpeed = 90; // Slower but more threatening
+        break;
+        
+      case EnemyType.MEGA_BOSS:
+        this.width = 64;
+        this.height = 64;
+        this.health = 10; // Takes ten hits
+        this.points = 3000;
+        this.frameCount = 4;
+        this.firingEnabled = true;
+        this.fireRate = 1.0; // Fires very often
+        this.diveSpeed = 80; // Slow but very threatening
         break;
     }
   }
@@ -531,6 +567,21 @@ export class Enemy implements Collidable {
         // Blood lord boss enemy
         this.drawBloodLord(renderer, frame);
         break;
+        
+      case EnemyType.MINI_BOSS:
+        // Mini-boss enemy
+        this.drawMiniBoss(renderer, frame);
+        break;
+        
+      case EnemyType.BOSS:
+        // Boss enemy
+        this.drawBoss(renderer, frame);
+        break;
+        
+      case EnemyType.MEGA_BOSS:
+        // Mega-boss enemy
+        this.drawMegaBoss(renderer, frame);
+        break;
     }
   }
   
@@ -649,6 +700,211 @@ export class Enemy implements Collidable {
   }
   
   /**
+   * Draw the mini-boss enemy (Vampire Count)
+   */
+  private drawMiniBoss(renderer: Renderer, frame: number): void {
+    // Colors
+    const bodyColor = '#550055'; // Dark purple
+    const capeColor = '#330033'; // Darker purple for cape
+    const armorColor = '#AA88AA'; // Light purple armor
+    const faceColor = '#EEEEEE'; // Pale white face
+    const eyeColor = '#FF00FF'; // Glowing purple eyes
+    
+    // Cape background (changes with animation)
+    if (frame === 0) {
+      renderer.fillRect(this.x + 4, this.y + 10, 32, 20, capeColor);
+    } else {
+      renderer.fillRect(this.x + 2, this.y + 8, 36, 22, capeColor);
+    }
+    
+    // Body
+    renderer.fillRect(this.x + 12, this.y + 10, 16, 22, bodyColor);
+    
+    // Armor plates
+    renderer.fillRect(this.x + 10, this.y + 14, 20, 4, armorColor);
+    renderer.fillRect(this.x + 10, this.y + 22, 20, 4, armorColor);
+    
+    // Head
+    renderer.fillRect(this.x + 12, this.y + 4, 16, 8, faceColor);
+    
+    // Helmet
+    renderer.fillRect(this.x + 10, this.y, 20, 4, armorColor);
+    renderer.fillRect(this.x + 8, this.y + 4, 4, 6, armorColor);
+    renderer.fillRect(this.x + 28, this.y + 4, 4, 6, armorColor);
+    
+    // Eyes
+    renderer.fillRect(this.x + 14, this.y + 8, 3, 3, eyeColor);
+    renderer.fillRect(this.x + 23, this.y + 8, 3, 3, eyeColor);
+    
+    // Weapons (dual swords)
+    renderer.fillRect(this.x + 4, this.y + 20, 6, 2, '#CCCCCC');
+    renderer.fillRect(this.x + 30, this.y + 20, 6, 2, '#CCCCCC');
+    
+    // Health indicator (pulsing aura based on remaining health)
+    const healthPercent = this.health / 3; // 3 is max health for mini-boss
+    const pulseAmount = 0.5 + Math.sin(performance.now() / 200) * 0.2;
+    
+    renderer.fillCircle(
+      this.x + this.width / 2,
+      this.y + this.height / 2,
+      this.width * 0.7 * pulseAmount,
+      `rgba(255, 0, 255, ${0.1 * healthPercent})`
+    );
+  }
+  
+  /**
+   * Draw the boss enemy (Vampire Duke)
+   */
+  private drawBoss(renderer: Renderer, frame: number): void {
+    // Colors
+    const bodyColor = '#003366'; // Dark blue
+    const capeColor = '#001133'; // Darker blue for cape
+    const armorColor = '#3366AA'; // Blue armor
+    const faceColor = '#DDDDDD'; // Pale face
+    const eyeColor = '#00AAFF'; // Glowing blue eyes
+    const crownColor = '#FFCC00'; // Gold crown
+    
+    // Cape background (changes with animation)
+    if (frame === 0) {
+      renderer.fillRect(this.x + 6, this.y + 12, 36, 24, capeColor);
+    } else if (frame === 1) {
+      renderer.fillRect(this.x + 4, this.y + 10, 40, 26, capeColor);
+    } else {
+      renderer.fillRect(this.x + 2, this.y + 8, 44, 28, capeColor);
+    }
+    
+    // Body
+    renderer.fillRect(this.x + 16, this.y + 12, 16, 28, bodyColor);
+    
+    // Armor
+    renderer.fillRect(this.x + 14, this.y + 16, 20, 6, armorColor);
+    renderer.fillRect(this.x + 14, this.y + 26, 20, 6, armorColor);
+    
+    // Shoulder pads
+    renderer.fillRect(this.x + 8, this.y + 14, 6, 10, armorColor);
+    renderer.fillRect(this.x + 34, this.y + 14, 6, 10, armorColor);
+    
+    // Head
+    renderer.fillRect(this.x + 16, this.y + 4, 16, 10, faceColor);
+    
+    // Crown (more elaborate)
+    renderer.fillRect(this.x + 14, this.y, 20, 4, crownColor);
+    renderer.fillRect(this.x + 12, this.y - 4, 4, 4, crownColor);
+    renderer.fillRect(this.x + 22, this.y - 4, 4, 4, crownColor);
+    renderer.fillRect(this.x + 32, this.y - 4, 4, 4, crownColor);
+    
+    // Eyes
+    renderer.fillRect(this.x + 18, this.y + 8, 4, 4, eyeColor);
+    renderer.fillRect(this.x + 26, this.y + 8, 4, 4, eyeColor);
+    
+    // Weapon (staff)
+    if (frame % 2 === 0) {
+      renderer.fillRect(this.x + 40, this.y + 10, 4, 30, '#AAAAAA');
+      renderer.fillRect(this.x + 36, this.y + 8, 12, 6, '#00AAFF');
+    } else {
+      renderer.fillRect(this.x + 4, this.y + 10, 4, 30, '#AAAAAA');
+      renderer.fillRect(this.x, this.y + 8, 12, 6, '#00AAFF');
+    }
+    
+    // Health indicator (pulsing aura based on remaining health)
+    const healthPercent = this.health / 5; // 5 is max health for boss
+    const pulseAmount = 0.6 + Math.sin(performance.now() / 150) * 0.2;
+    
+    renderer.fillCircle(
+      this.x + this.width / 2,
+      this.y + this.height / 2,
+      this.width * 0.8 * pulseAmount,
+      `rgba(0, 170, 255, ${0.15 * healthPercent})`
+    );
+  }
+  
+  /**
+   * Draw the mega-boss enemy (Vampire King)
+   */
+  private drawMegaBoss(renderer: Renderer, frame: number): void {
+    // Colors
+    const bodyColor = '#440000'; // Very dark red
+    const capeColor = '#220000'; // Almost black red for cape
+    const armorColor = '#AA0000'; // Bright red armor
+    const faceColor = '#EEEEEE'; // Pale white face
+    const eyeColor = '#FF0000'; // Glowing red eyes
+    const crownColor = '#FFDD00'; // Gold crown
+    const gemColor = '#FF00FF'; // Purple gem
+    
+    // Cape background (changes with animation)
+    if (frame === 0) {
+      renderer.fillRect(this.x + 8, this.y + 16, 48, 32, capeColor);
+    } else if (frame === 1) {
+      renderer.fillRect(this.x + 4, this.y + 14, 56, 34, capeColor);
+    } else if (frame === 2) {
+      renderer.fillRect(this.x, this.y + 12, 64, 36, capeColor);
+    } else {
+      renderer.fillRect(this.x + 2, this.y + 14, 60, 34, capeColor);
+    }
+    
+    // Body
+    renderer.fillRect(this.x + 20, this.y + 16, 24, 36, bodyColor);
+    
+    // Armor plates
+    renderer.fillRect(this.x + 18, this.y + 20, 28, 8, armorColor);
+    renderer.fillRect(this.x + 18, this.y + 32, 28, 8, armorColor);
+    
+    // Shoulder armor
+    renderer.fillRect(this.x + 10, this.y + 18, 8, 14, armorColor);
+    renderer.fillRect(this.x + 46, this.y + 18, 8, 14, armorColor);
+    
+    // Head
+    renderer.fillRect(this.x + 22, this.y + 6, 20, 12, faceColor);
+    
+    // Crown (elaborate)
+    renderer.fillRect(this.x + 18, this.y, 28, 6, crownColor);
+    renderer.fillRect(this.x + 16, this.y - 6, 4, 6, crownColor);
+    renderer.fillRect(this.x + 24, this.y - 8, 4, 8, crownColor);
+    renderer.fillRect(this.x + 32, this.y - 10, 6, 10, crownColor);
+    renderer.fillRect(this.x + 42, this.y - 6, 4, 6, crownColor);
+    
+    // Crown gem
+    renderer.fillRect(this.x + 30, this.y - 4, 4, 4, gemColor);
+    
+    // Eyes
+    renderer.fillRect(this.x + 26, this.y + 10, 4, 4, eyeColor);
+    renderer.fillRect(this.x + 34, this.y + 10, 4, 4, eyeColor);
+    
+    // Weapon (changes with animation)
+    if (frame % 2 === 0) {
+      // Sword on right side
+      renderer.fillRect(this.x + 54, this.y + 12, 6, 40, '#AAAAAA');
+      renderer.fillRect(this.x + 50, this.y + 12, 14, 6, '#AAAAAA');
+      renderer.fillRect(this.x + 54, this.y + 8, 6, 4, '#FF0000');
+    } else {
+      // Sword on left side
+      renderer.fillRect(this.x + 4, this.y + 12, 6, 40, '#AAAAAA');
+      renderer.fillRect(this.x, this.y + 12, 14, 6, '#AAAAAA');
+      renderer.fillRect(this.x + 4, this.y + 8, 6, 4, '#FF0000');
+    }
+    
+    // Health indicator (pulsing aura based on remaining health)
+    const healthPercent = this.health / 10; // 10 is max health for mega-boss
+    const pulseAmount = 0.7 + Math.sin(performance.now() / 100) * 0.3;
+    
+    // Inner aura
+    renderer.fillCircle(
+      this.x + this.width / 2,
+      this.y + this.height / 2,
+      this.width * 0.6 * pulseAmount,
+      `rgba(255, 0, 0, ${0.2 * healthPercent})`
+    );
+    
+    // Outer aura
+    renderer.fillCircle(
+      this.x + this.width / 2,
+      this.y + this.height / 2,
+      this.width * 0.9 * pulseAmount,
+      `rgba(255, 0, 0, ${0.1 * healthPercent})`
+    );
+  }
+  
+  /**
    * Handle being hit by a projectile
    */
   public hit(): boolean {
@@ -662,11 +918,16 @@ export class Enemy implements Collidable {
       // Enemy destroyed
       this.state = EnemyState.EXPLODING;
       this.explosionTimer = 0;
-      this.soundEngine.playSound(
-        this.type === EnemyType.BLOOD_LORD
-          ? SoundEffect.BOSS_EXPLOSION
-          : SoundEffect.ENEMY_EXPLOSION
-      );
+      
+      // Play appropriate explosion sound based on enemy type
+      if (this.type === EnemyType.BLOOD_LORD ||
+          this.type === EnemyType.MINI_BOSS ||
+          this.type === EnemyType.BOSS ||
+          this.type === EnemyType.MEGA_BOSS) {
+        this.soundEngine.playSound(SoundEffect.BOSS_EXPLOSION);
+      } else {
+        this.soundEngine.playSound(SoundEffect.ENEMY_EXPLOSION);
+      }
       return true;
     } else {
       // Enemy hit but not destroyed - show hit animation
@@ -713,7 +974,12 @@ export class Enemy implements Collidable {
    * Start capturing sequence
    */
   public startCapture(playerPosition: {x: number, y: number}): void {
-    if (this.state !== EnemyState.ACTIVE || this.type !== EnemyType.BLOOD_LORD) {
+    // Allow all boss types to capture the player
+    if (this.state !== EnemyState.ACTIVE ||
+        (this.type !== EnemyType.BLOOD_LORD &&
+         this.type !== EnemyType.MINI_BOSS &&
+         this.type !== EnemyType.BOSS &&
+         this.type !== EnemyType.MEGA_BOSS)) {
       return;
     }
     
