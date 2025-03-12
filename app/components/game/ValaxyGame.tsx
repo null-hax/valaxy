@@ -223,8 +223,8 @@ export default function ValaxyGame() {
           >
             PRESS SPACE TO PLAY
           </div>
-          <div className="mt-16 text-gray-200 text-3xl pixel-text">©2025 WEST COAST AI LABS</div>
-          <div className="mt-4 text-red-600 text-xl pixel-text">LICENSED BY WEST COAST AI LABS</div>
+          <div className="mt-16 text-gray-200 text-2xl pixel-text">© 2025 WEST COAST AI LABS</div>
+          <div className="mt-4 text-red-600 text-md pixel-text">LICENSED BY WEST COAST AI LABS</div>
         </div>
       )}
       

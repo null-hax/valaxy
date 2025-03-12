@@ -65,14 +65,7 @@ export class Game {
   // Boot screen
   private bootProgress: number = 0;
   private bootComplete: boolean = false;
-  private bootMessages: string[] = [
-    "INITIALIZING VALAXY OS...",
-    "LOADING VAMPIRE DATABASE...",
-    "CALIBRATING STAKE LAUNCHERS...",
-    "SCANNING FOR BLOOD SIGNATURES...",
-    "",
-    "SYSTEM READY."
-  ];
+  private bootMessages: string[] = []; // Removed text messages
   private currentBootMessage: number = 0;
   
   constructor(
@@ -618,80 +611,408 @@ export class Game {
    */
   private renderBootScreen(): void {
     const centerX = this.width / 2;
-    const startY = this.height / 3;
+    const centerY = this.height / 2;
     
-    // Draw boot messages (except the last "SYSTEM READY" message which is drawn separately)
-    for (let i = 0; i < Math.min(this.currentBootMessage, this.bootMessages.length - 1); i++) {
-      const message = this.bootMessages[i];
-      const alpha = i === this.currentBootMessage
-        ? Math.min(1, (this.bootProgress * this.bootMessages.length) % 1 + 0.5)
-        : 1;
+    // Create a dark atmospheric background
+    this.renderer.fillRect(0, 0, this.width, this.height, '#050505');
+    
+    // Draw mystical blood-red mist effect
+    for (let i = 0; i < 30; i++) {
+      const fogX = Math.sin(this.stateTime * 0.3 + i * 0.2) * (this.width * 0.4) + centerX;
+      const fogY = Math.cos(this.stateTime * 0.2 + i * 0.3) * (this.height * 0.3) + centerY;
+      const fogSize = 70 + Math.sin(this.stateTime * 0.5 + i) * 30;
+      const fogAlpha = 0.03 + Math.sin(this.stateTime * 0.2 + i * 0.1) * 0.02;
       
-      this.renderer.drawText(message, {
-        x: centerX,
-        y: startY + i * 60, // Much more spacing between lines for better readability
-        color: '#FFFFFF',
-        fontSize: 72, // Much larger font size for better visibility
-        align: 'center',
-        alpha,
-        fontFamily: 'Press Start 2P, monospace',
-        pixelated: true
-      });
+      this.renderer.fillCircle(
+        fogX,
+        fogY,
+        fogSize,
+        `rgba(100, 0, 0, ${fogAlpha})`
+      );
     }
     
-    // Draw progress bar
-    const barWidth = this.width * 0.7;
-    const barHeight = 30;
-    const barX = (this.width - barWidth) / 2;
-    const barY = this.height * 0.7;
+    // Draw a large ornate blood vial in the center
+    const vialWidth = 140;
+    const vialHeight = 280;
+    const vialX = centerX - vialWidth / 2;
+    const vialY = centerY - vialHeight / 2 + 20; // Slightly lower
     
-    // Draw system ready text separately with better placement and alignment
-    if (this.currentBootMessage === this.bootMessages.length - 1) {
-      this.renderer.drawText(this.bootMessages[this.bootMessages.length - 1], {
-        x: centerX,
-        y: this.height * 0.7 + barHeight + 30,
-        color: '#00FF00',
-        fontSize: 72,
-        align: 'center',
-        alpha: 1,
-        fontFamily: 'Press Start 2P, monospace',
-        pixelated: true,
-        baseline: 'middle' // Ensure consistent vertical alignment
-      });
+    // Draw an altar/pedestal for the vial
+    const altarWidth = vialWidth * 2;
+    const altarHeight = 50;
+    const altarX = centerX - altarWidth / 2;
+    const altarY = vialY + vialHeight - 20;
+    
+    // Altar base
+    this.renderer.fillRect(
+      altarX,
+      altarY,
+      altarWidth,
+      altarHeight,
+      'rgba(40, 10, 10, 0.7)'
+    );
+    
+    // Altar details
+    for (let i = 0; i < 7; i++) {
+      this.renderer.fillRect(
+        altarX + 10 + i * (altarWidth - 20) / 6,
+        altarY - 5,
+        10,
+        5,
+        'rgba(60, 20, 20, 0.7)'
+      );
     }
     
-    // Draw licensed text (moved below progress bar)
-    this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
+    // Draw candles on the altar
+    const candlePositions = [
+      { x: altarX + 30, y: altarY - 15 },
+      { x: altarX + altarWidth - 30, y: altarY - 15 }
+    ];
+    
+    candlePositions.forEach(pos => {
+      // Candle body
+      this.renderer.fillRect(
+        pos.x - 5,
+        pos.y - 20,
+        10,
+        20,
+        'rgba(150, 150, 150, 0.7)'
+      );
+      
+      // Candle flame
+      const flameHeight = 15 + Math.sin(this.stateTime * 5) * 3;
+      this.renderer.fillRect(
+        pos.x - 1,
+        pos.y - 20 - flameHeight,
+        2,
+        flameHeight,
+        'rgba(255, 200, 100, 0.8)'
+      );
+      
+      // Flame glow
+      this.renderer.fillCircle(
+        pos.x,
+        pos.y - 20 - flameHeight / 2,
+        flameHeight / 2 + 5,
+        'rgba(255, 150, 50, 0.2)'
+      );
+    });
+    
+    // Vial neck (top narrow part)
+    const neckWidth = 40;
+    const neckHeight = 50;
+    const neckX = vialX + (vialWidth - neckWidth) / 2;
+    
+    // Draw ornate symbols around the vial
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + this.stateTime * 0.2;
+      const radius = 180;
+      const symbolX = centerX + Math.cos(angle) * radius;
+      const symbolY = centerY + Math.sin(angle) * radius;
+      
+      // Draw mystical symbol
+      this.renderer.fillCircle(
+        symbolX,
+        symbolY,
+        5,
+        'rgba(150, 0, 0, 0.3)'
+      );
+      
+      // Connect symbols with lines
+      const nextAngle = ((i + 1) / 8) * Math.PI * 2 + this.stateTime * 0.2;
+      const nextX = centerX + Math.cos(nextAngle) * radius;
+      const nextY = centerY + Math.sin(nextAngle) * radius;
+      
+      this.renderer.strokeLine(
+        symbolX,
+        symbolY,
+        nextX,
+        nextY,
+        'rgba(100, 0, 0, 0.2)',
+        1
+      );
+      
+      // Connect to center
+      this.renderer.strokeLine(
+        symbolX,
+        symbolY,
+        centerX,
+        centerY,
+        'rgba(100, 0, 0, 0.1)',
+        1
+      );
+    }
+    
+    // Vial body (main container) with curved shape
+    // Left side curve
+    for (let i = 0; i < 10; i++) {
+      const curveWidth = Math.sin(i / 10 * Math.PI) * 15;
+      this.renderer.fillRect(
+        vialX - curveWidth,
+        vialY + neckHeight + i * (vialHeight - neckHeight) / 10,
+        curveWidth,
+        (vialHeight - neckHeight) / 10,
+        'rgba(40, 40, 60, 0.3)'
+      );
+    }
+    
+    // Right side curve
+    for (let i = 0; i < 10; i++) {
+      const curveWidth = Math.sin(i / 10 * Math.PI) * 15;
+      this.renderer.fillRect(
+        vialX + vialWidth,
+        vialY + neckHeight + i * (vialHeight - neckHeight) / 10,
+        curveWidth,
+        (vialHeight - neckHeight) / 10,
+        'rgba(40, 40, 60, 0.3)'
+      );
+    }
+    
+    // Main vial body
+    this.renderer.fillRect(
+      vialX,
+      vialY + neckHeight,
+      vialWidth,
+      vialHeight - neckHeight,
+      'rgba(40, 40, 60, 0.3)'
+    );
+    
+    // Vial neck
+    this.renderer.fillRect(
+      neckX,
+      vialY,
+      neckWidth,
+      neckHeight,
+      'rgba(40, 40, 60, 0.3)'
+    );
+    
+    // Ornate vial cap
+    this.renderer.fillRect(
+      neckX - 15,
+      vialY - 20,
+      neckWidth + 30,
+      20,
+      'rgba(80, 40, 40, 0.8)'
+    );
+    
+    // Cap details
+    for (let i = 0; i < 5; i++) {
+      this.renderer.fillRect(
+        neckX - 10 + i * 15,
+        vialY - 25,
+        10,
+        5,
+        'rgba(120, 60, 60, 0.8)'
+      );
+    }
+    
+    // Glass highlights
+    this.renderer.fillRect(
+      vialX + 15,
+      vialY + neckHeight + 10,
+      3,
+      vialHeight - neckHeight - 20,
+      'rgba(200, 200, 255, 0.3)'
+    );
+    
+    this.renderer.fillRect(
+      vialX + vialWidth - 18,
+      vialY + neckHeight + 10,
+      3,
+      vialHeight - neckHeight - 20,
+      'rgba(200, 200, 255, 0.3)'
+    );
+    
+    // Calculate blood fill level based on boot progress
+    const maxFillHeight = vialHeight - neckHeight - 10;
+    const currentFillHeight = maxFillHeight * this.bootProgress;
+    const bloodY = vialY + vialHeight - currentFillHeight;
+    
+    // Blood fill animation
+    const bloodColor = '#990000';
+    const bloodHighlight = '#FF0000';
+    const bloodShadow = '#550000';
+    
+    // Blood shadow/depth effect
+    this.renderer.fillRect(
+      vialX + 10,
+      bloodY,
+      vialWidth - 20,
+      currentFillHeight,
+      bloodShadow
+    );
+    
+    // Main blood body
+    this.renderer.fillRect(
+      vialX + 15,
+      bloodY,
+      vialWidth - 30,
+      currentFillHeight,
+      bloodColor
+    );
+    
+    // Blood wave at top with better containment
+    if (currentFillHeight > 0) {
+      // Ensure waves stay within vial boundaries
+      const safeWidth = vialWidth - 40; // Narrower than the vial to prevent overflow
+      const waveStartX = vialX + 20;
+      
+      for (let i = 0; i < safeWidth; i++) {
+        const waveY = Math.sin((this.stateTime * 3) + (i * 0.2)) * 3;
+        
+        // Only draw if within vial
+        if (bloodY + waveY > vialY + neckHeight && bloodY + waveY < vialY + vialHeight - 10) {
+          this.renderer.fillRect(
+            waveStartX + i,
+            bloodY + waveY,
+            1,
+            4,
+            bloodHighlight
+          );
+        }
+      }
+    }
+    
+    // Blood bubbles animation with proper containment
+    if (currentFillHeight > 20) {
+      const bubbleCount = Math.min(8, Math.floor(currentFillHeight / 30));
+      const safeWidth = vialWidth - 50; // Even narrower for bubbles
+      
+      for (let i = 0; i < bubbleCount; i++) {
+        const bubbleSize = 1.5 + Math.random() * 2;
+        // Constrain bubble X position to stay safely within vial
+        const bubbleX = vialX + 25 + (Math.sin(this.stateTime * 0.8 + i * 2) * 0.5 + 0.5) * safeWidth;
+        
+        // Bubble rises based on time and its index
+        const bubbleRise = ((this.stateTime * 15) + (i * 40)) % (currentFillHeight - 10);
+        const bubbleY = bloodY + currentFillHeight - bubbleRise - 10;
+        
+        // Only draw if bubble is within the blood and vial
+        if (bubbleY > bloodY && bubbleY < vialY + vialHeight - 15) {
+          this.renderer.fillCircle(
+            bubbleX,
+            bubbleY,
+            bubbleSize,
+            'rgba(255, 50, 50, 0.7)'
+          );
+        }
+      }
+    }
+    
+    // Blood glow effect
+    if (currentFillHeight > 0) {
+      const glowRadius = 50 + Math.sin(this.stateTime * 2) * 10;
+      this.renderer.fillCircle(
+        centerX,
+        bloodY + currentFillHeight / 2,
+        glowRadius,
+        'rgba(255, 0, 0, 0.05)'
+      );
+    }
+    
+    // Vial glass border
+    this.renderer.strokeRect(
+      vialX,
+      vialY + neckHeight,
+      vialWidth,
+      vialHeight - neckHeight,
+      'rgba(255, 255, 255, 0.4)',
+      2
+    );
+    
+    // Neck glass border
+    this.renderer.strokeRect(
+      neckX,
+      vialY,
+      neckWidth,
+      neckHeight,
+      'rgba(255, 255, 255, 0.4)',
+      2
+    );
+    
+    // Ornate measurement lines with symbols
+    for (let i = 1; i <= 5; i++) {
+      const lineY = vialY + neckHeight + (vialHeight - neckHeight) * (i / 6);
+      
+      // Left measurement line with decorative end
+      this.renderer.fillRect(
+        vialX - 15,
+        lineY,
+        15,
+        1,
+        'rgba(255, 255, 255, 0.5)'
+      );
+      
+      this.renderer.fillCircle(
+        vialX - 18,
+        lineY,
+        3,
+        'rgba(255, 100, 100, 0.5)'
+      );
+      
+      // Right measurement line with decorative end
+      this.renderer.fillRect(
+        vialX + vialWidth,
+        lineY,
+        15,
+        1,
+        'rgba(255, 255, 255, 0.5)'
+      );
+      
+      this.renderer.fillCircle(
+        vialX + vialWidth + 18,
+        lineY,
+        3,
+        'rgba(255, 100, 100, 0.5)'
+      );
+    }
+    
+    // Draw completion effect when full
+    if (this.bootProgress >= 1) {
+      // Pulsing glow around the vial
+      const pulseSize = 150 + Math.sin(this.stateTime * 5) * 30;
+      const pulseAlpha = 0.2 + Math.sin(this.stateTime * 3) * 0.1;
+      
+      this.renderer.fillCircle(
+        centerX,
+        centerY,
+        pulseSize,
+        `rgba(255, 0, 0, ${pulseAlpha})`
+      );
+      
+      // Particles emanating from the vial
+      for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2 + this.stateTime;
+        const distance = 50 + Math.sin(this.stateTime * 3 + i) * 30;
+        const particleX = centerX + Math.cos(angle) * distance;
+        const particleY = centerY + Math.sin(angle) * distance;
+        const particleSize = 2 + Math.sin(this.stateTime * 5 + i) * 1;
+        
+        this.renderer.fillCircle(
+          particleX,
+          particleY,
+          particleSize,
+          'rgba(255, 50, 50, 0.7)'
+        );
+      }
+    }
+    
+    // Draw copyright and license at the bottom
+    this.renderer.drawText("© 2025 WEST COAST AI LABS", {
       x: centerX,
-      y: this.height * 0.7 + barHeight + 85,
-      color: '#FF0000',
-      fontSize: 36,
+      y: this.height - 80,
+      color: '#AAAAAA',
+      fontSize: 24,
       align: 'center',
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
     });
     
-    // Bar background
-    this.renderer.fillRect(barX, barY, barWidth, barHeight, '#333333');
-    
-    // Progress
-    this.renderer.fillRect(
-      barX,
-      barY,
-      barWidth * this.bootProgress,
-      barHeight,
-      '#00FF00'
-    );
-    
-    // Add border to progress bar
-    this.renderer.strokeRect(barX, barY, barWidth, barHeight, '#FFFFFF', 3);
-    
-    // Draw copyright
-    this.renderer.drawText("© 2025 WEST COAST AI LABS", {
+    this.renderer.drawText("LICENSED BY WEST COAST AI LABS", {
       x: centerX,
-      y: this.height - 80,
-      color: '#AAAAAA',
-      fontSize: 48,
+      y: this.height - 40,
+      color: '#FF0000',
+      fontSize: 24,
       align: 'center',
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
