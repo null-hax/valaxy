@@ -574,8 +574,8 @@ export class Game {
       this.state = GameState.TITLE;
       this.stateTime = 0;
       
-      // Then restart music with a simple approach
-      this.soundEngine.startMusic(true).catch(err => {
+      // Then restart music with a direct approach using restartMusic
+      this.soundEngine.restartMusic().catch(err => {
         console.error("Failed to restart background music:", err);
       });
       
@@ -738,8 +738,8 @@ export class Game {
           this.state = GameState.TITLE;
           this.stateTime = 0;
           
-          // Then restart music with a simple approach
-          this.soundEngine.startMusic(true).catch(err => {
+          // Then restart music with a direct approach using restartMusic
+          this.soundEngine.restartMusic().catch(err => {
             console.error("Failed to restart background music:", err);
           });
           

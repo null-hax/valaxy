@@ -917,10 +917,10 @@ export class SoundEngine {
 
   /**
    * Restart the background music from the beginning
-   * Simplified version that's more reliable during state transitions
+   * Complete recreation approach for maximum reliability
    */
   public async restartMusic(): Promise<void> {
-    console.log("Restarting background music with simplified approach...");
+    console.log("Restarting background music with complete recreation approach...");
     
     try {
       // First, ensure we're in a clean state by stopping any existing music
@@ -935,23 +935,87 @@ export class SoundEngine {
       transport.cancel(0); // Cancel all scheduled events
       console.log("Tone.js transport reset");
       
+      // Dispose of existing music parts to ensure clean slate
+      if (this.musicPart) {
+        try {
+          // Get the upper part before disposing the main part
+          const upperPart = (this.musicPart as any).upperPart as Tone.Part;
+          
+          // Dispose the main part
+          this.musicPart.dispose();
+          
+          // Dispose the upper part if it exists
+          if (upperPart) {
+            upperPart.dispose();
+          }
+          
+          console.log("Disposed existing music parts");
+        } catch (disposeError) {
+          console.error("Error disposing music parts:", disposeError);
+        }
+        
+        // Clear the reference
+        this.musicPart = undefined;
+      }
+      
       // Add a small delay for clean separation
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Simply start the music again using the existing startMusic method
-      // with forceRestart=false since we've already handled the stopping
-      await this.startMusic(false);
+      // Recreate the background music from scratch
+      this.createBackgroundMusic();
+      console.log("Recreated background music");
       
-      console.log("Background music restarted successfully");
+      // Add another small delay before starting
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Ensure audio context is running
+      const context = Tone.getContext();
+      try {
+        await Tone.start();
+        await context.resume();
+        console.log("Audio context resumed in restartMusic, state:", context.state);
+      } catch (contextError) {
+        console.error("Error resuming audio context:", contextError);
+      }
+      
+      // Start the music with the newly created parts
+      if (this.musicPart) {
+        // Set tempo
+        transport.bpm.value = 70;
+        console.log("Setting tempo to", transport.bpm.value, "BPM");
+        
+        // Start transport
+        transport.start();
+        
+        // Start the main organ part
+        this.musicPart.start(0);
+        
+        // Start the upper register part if it exists
+        const upperPart = (this.musicPart as any).upperPart;
+        if (upperPart && typeof upperPart.start === 'function') {
+          upperPart.start(0);
+          console.log("Upper register countermelody started");
+        }
+        
+        this.musicIsPlaying = true;
+        console.log("Background music restarted successfully with recreation approach");
+      } else {
+        console.error("Music part not created - cannot restart music");
+      }
     } catch (error) {
-      console.error("Error in simplified restartMusic:", error);
+      console.error("Error in recreation restartMusic:", error);
       
-      // If there was an error, try a more direct approach
+      // Last resort fallback - try to start music directly
       try {
         // Ensure audio context is running
         const context = Tone.getContext();
         await Tone.start();
         await context.resume();
+        
+        // Create new music if needed
+        if (!this.musicPart) {
+          this.createBackgroundMusic();
+        }
         
         // Start transport and music parts directly
         if (this.musicPart) {
@@ -960,8 +1024,8 @@ export class SoundEngine {
           this.musicPart.start(0);
           
           // Start the upper register part if it exists
-          const upperPart = (this.musicPart as any).upperPart as Tone.Part;
-          if (upperPart) {
+          const upperPart = (this.musicPart as any).upperPart;
+          if (upperPart && typeof upperPart.start === 'function') {
             upperPart.start(0);
           }
           
