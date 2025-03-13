@@ -198,33 +198,44 @@
   }
 }
 
-/* Virtual control styling for mobile */
-.virtual-joystick {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(30, 30, 30, 0.7);
-  border: 2px solid rgba(100, 0, 0, 0.8);
+/* Mobile control styling */
+.control-button {
+  width: 70px;
+  height: 70px;
+  border-radius: 8px;
+  background: rgba(30, 30, 30, 0.9);
+  border: 3px solid rgba(100, 0, 0, 0.9);
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: white;
+  font-weight: bold;
   touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
-.virtual-joystick-handle {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(153, 0, 0, 0.9);
-  box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+.control-button span {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: -1px;
+}
+
+.control-button:active {
+  background: rgba(60, 30, 30, 0.9);
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+  transform: scale(0.95);
 }
 
 .fire-button {
-  width: 100px;
-  height: 100px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
-  background: rgba(153, 0, 0, 0.8);
-  border: 2px solid rgba(200, 0, 0, 0.8);
+  background: rgba(153, 0, 0, 0.9);
+  border: 3px solid rgba(200, 0, 0, 0.9);
   box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
   display: flex;
   align-items: center;
@@ -232,11 +243,47 @@
   color: white;
   font-weight: bold;
   touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.fire-button span {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 1px;
 }
 
 .fire-button:active {
   background: rgba(200, 0, 0, 0.9);
   box-shadow: 0 0 20px rgba(255, 0, 0, 0.7);
+  transform: scale(0.95);
+}
+
+/* Responsive control sizes */
+@media (max-width: 360px) {
+  .control-button {
+    width: 60px;
+    height: 60px;
+    font-size: 18px;
+  }
+  
+  .fire-button {
+    width: 80px;
+    height: 80px;
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 480px) {
+  .control-button {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .fire-button {
+    width: 100px;
+    height: 100px;
+  }
 }
 
 /* Subtle Vampire-themed glow effects */
