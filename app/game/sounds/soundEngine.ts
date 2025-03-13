@@ -25,7 +25,7 @@ export enum SoundEffect {
 
 export class SoundEngine {
   private _isMuted: boolean = false;
-  private _volumeDb: number = -10; // Default volume in decibels
+  private _volumeDb: number = -3; // Default volume in decibels
   private masterVolume: Tone.Volume;
   private isInitialized: boolean = false;
   private sounds: Map<SoundEffect, Tone.ToneAudioNode> = new Map();
@@ -35,7 +35,7 @@ export class SoundEngine {
 
   constructor() {
     // Create a master volume node
-    this.masterVolume = new Tone.Volume(-10);
+    this.masterVolume = new Tone.Volume(-3);
     
     // Connect it to the destination (output)
     // Fix: Use getDestination() instead of deprecated Destination
