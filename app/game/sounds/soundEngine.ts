@@ -289,12 +289,12 @@ export class SoundEngine {
   }
 
   /**
-   * Create a spooky church organ background music
+   * Create a spooky church organ background music with multiple instruments
    */
   private createBackgroundMusic(): void {
-    console.log("Creating spooky church organ background music");
+    console.log("Creating enhanced spooky church organ background music");
     
-    // Create a church organ-like synth
+    // Create a church organ-like synth for the bass and mid-range
     this.musicSynth = new Tone.PolySynth(Tone.FMSynth, {
       harmonicity: 2,
       modulationIndex: 1.5,
@@ -313,6 +313,29 @@ export class SoundEngine {
       modulationEnvelope: {
         attack: 0.1,
         decay: 0.5,
+        sustain: 0.2,
+        release: 0.5
+      }
+    });
+    
+    // Create a second synth for upper register melodies
+    const upperSynth = new Tone.PolySynth(Tone.AMSynth, {
+      harmonicity: 1.5,
+      oscillator: {
+        type: "sine"
+      },
+      envelope: {
+        attack: 0.1,
+        decay: 0.2,
+        sustain: 0.4,
+        release: 1.5
+      },
+      modulation: {
+        type: "triangle"
+      },
+      modulationEnvelope: {
+        attack: 0.5,
+        decay: 0.1,
         sustain: 0.2,
         release: 0.5
       }
@@ -342,14 +365,38 @@ export class SoundEngine {
       rolloff: -24
     });
     
-    // Connect the effects chain
+    // Add effects for the upper synth
+    const upperReverb = new Tone.Reverb({
+      decay: 5,
+      wet: 0.4
+    });
+    
+    const upperChorus = new Tone.Chorus({
+      frequency: 0.8,
+      delayTime: 4,
+      depth: 0.8,
+      wet: 0.3
+    }).start();
+    
+    const upperTremolo = new Tone.Tremolo({
+      frequency: 3,
+      depth: 0.3
+    }).start();
+    
+    // Connect the effects chain for main organ
     this.musicSynth.connect(chorus);
     chorus.connect(tremolo);
     tremolo.connect(reverb);
     reverb.connect(filter);
     filter.connect(new Tone.Volume(-3).connect(this.masterVolume));
     
-    console.log("Church organ synth and effects created");
+    // Connect the effects chain for upper synth
+    upperSynth.connect(upperChorus);
+    upperChorus.connect(upperTremolo);
+    upperTremolo.connect(upperReverb);
+    upperReverb.connect(new Tone.Volume(-8).connect(this.masterVolume));
+    
+    console.log("Church organ synths and effects created");
 
     // Spooky church organ melody in minor key
     // Using D minor (D, E, F, G, A, Bb, C)
@@ -396,23 +443,171 @@ export class SoundEngine {
       
       // Final cadence
       { time: '7:0', note: ['D2', 'A2', 'D3'], duration: '2n' },
-      { time: '7:2', note: ['D2', 'F2', 'A2', 'D3'], duration: '2n' }
+      { time: '7:2', note: ['D2', 'F2', 'A2', 'D3'], duration: '2n' },
+      
+      // Extended melody - second section with more complex harmonies
+      // Ascending motif in upper register
+      { time: '8:0', note: 'F3', duration: '4n' },
+      { time: '8:1', note: 'A3', duration: '4n' },
+      { time: '8:2', note: 'C4', duration: '4n' },
+      { time: '8:3', note: 'F4', duration: '4n' },
+      
+      // Descending sequence with pedal tone
+      { time: '9:0', note: ['D2', 'E4'], duration: '8n' },
+      { time: '9:1', note: ['D2', 'D4'], duration: '8n' },
+      { time: '9:2', note: ['D2', 'C4'], duration: '8n' },
+      { time: '9:3', note: ['D2', 'Bb3'], duration: '8n' },
+      
+      // Harmonic minor scale passage
+      { time: '10:0', note: 'A3', duration: '8n' },
+      { time: '10:1', note: 'Bb3', duration: '8n' },
+      { time: '10:2', note: 'C#4', duration: '8n' },
+      { time: '10:3', note: 'D4', duration: '8n' },
+      { time: '11:0', note: 'E4', duration: '8n' },
+      { time: '11:1', note: 'F4', duration: '8n' },
+      { time: '11:2', note: 'G#4', duration: '8n' },
+      { time: '11:3', note: 'A4', duration: '8n' },
+      
+      // Diminished chord sequence
+      { time: '12:0', note: ['F#3', 'A3', 'C4'], duration: '4n' },
+      { time: '12:1', note: ['F3', 'Ab3', 'B3'], duration: '4n' },
+      { time: '12:2', note: ['E3', 'G3', 'Bb3'], duration: '4n' },
+      { time: '12:3', note: ['Eb3', 'Gb3', 'A3'], duration: '4n' },
+      
+      // Neapolitan chord and resolution
+      { time: '13:0', note: ['Eb3', 'G3', 'Bb3'], duration: '2n' },
+      { time: '13:2', note: ['A2', 'E3', 'A3'], duration: '2n' },
+      
+      // Final phrase with modal mixture
+      { time: '14:0', note: ['D3', 'F3', 'A3'], duration: '4n' },
+      { time: '14:1', note: ['D3', 'F#3', 'A3'], duration: '4n' }, // Major chord for contrast
+      { time: '14:2', note: ['G2', 'Bb2', 'D3', 'G3'], duration: '4n' },
+      { time: '14:3', note: ['A2', 'E3', 'A3'], duration: '4n' },
+      
+      // Final authentic cadence
+      { time: '15:0', note: ['A2', 'C#3', 'E3', 'A3'], duration: '2n' }, // Dominant
+      { time: '15:2', note: ['D2', 'D3', 'F3', 'A3', 'D4'], duration: '2n' } // Tonic
     ];
 
-    console.log("Spooky melody created with", spookyMelody.length, "notes/chords");
+    // Upper register countermelody
+    const upperMelody = [
+      // First phrase - counterpoint to main theme
+      { time: '0:0.5', note: 'A4', duration: '8n' },
+      { time: '0:1.5', note: 'D5', duration: '8n' },
+      { time: '0:2.5', note: 'F5', duration: '8n' },
+      { time: '0:3.5', note: 'E5', duration: '8n' },
+      
+      // Descending figure
+      { time: '1:0.5', note: 'D5', duration: '8n' },
+      { time: '1:1.5', note: 'C5', duration: '8n' },
+      { time: '1:2.5', note: 'Bb4', duration: '8n' },
+      { time: '1:3.5', note: 'A4', duration: '8n' },
+      
+      // Sustained high note during dissonant section
+      { time: '2:0', note: 'D5', duration: '2n.' },
+      { time: '2:3', note: 'C#5', duration: '8n' },
+      
+      // Echo of the resolving phrase
+      { time: '3:0.5', note: 'D5', duration: '8n' },
+      { time: '3:1.5', note: 'A4', duration: '8n' },
+      { time: '3:2.5', note: 'F4', duration: '8n' },
+      
+      // High pedal tone
+      { time: '4:0', note: 'A4', duration: '1n' },
+      
+      // Chromatic response
+      { time: '5:0.5', note: 'G4', duration: '8n' },
+      { time: '5:1.5', note: 'F#4', duration: '8n' },
+      { time: '5:2.5', note: 'F4', duration: '8n' },
+      { time: '5:3.5', note: 'E4', duration: '8n' },
+      
+      // Tension building - high register
+      { time: '6:0', note: 'Eb5', duration: '4n' },
+      { time: '6:1', note: 'D5', duration: '4n' },
+      { time: '6:2', note: 'C5', duration: '4n' },
+      { time: '6:3', note: 'Bb4', duration: '4n' },
+      
+      // Final cadence - high register
+      { time: '7:0', note: 'A4', duration: '2n' },
+      { time: '7:2', note: 'D5', duration: '2n' },
+      
+      // Second section - upper register flourishes
+      { time: '8:0.5', note: 'A5', duration: '16n' },
+      { time: '8:0.75', note: 'G5', duration: '16n' },
+      { time: '8:1', note: 'F5', duration: '8n' },
+      { time: '8:2.5', note: 'A5', duration: '16n' },
+      { time: '8:2.75', note: 'G5', duration: '16n' },
+      { time: '8:3', note: 'A5', duration: '8n' },
+      
+      // Descending sequence response
+      { time: '9:0.5', note: 'F5', duration: '8n' },
+      { time: '9:1.5', note: 'E5', duration: '8n' },
+      { time: '9:2.5', note: 'D5', duration: '8n' },
+      { time: '9:3.5', note: 'C5', duration: '8n' },
+      
+      // Harmonic minor scale - higher octave
+      { time: '10:0.5', note: 'E5', duration: '8n' },
+      { time: '10:1.5', note: 'F5', duration: '8n' },
+      { time: '10:2.5', note: 'G#5', duration: '8n' },
+      { time: '10:3.5', note: 'A5', duration: '8n' },
+      
+      // Sustained high note
+      { time: '11:0', note: 'D6', duration: '1n' },
+      
+      // Diminished chord arpeggios
+      { time: '12:0.5', note: 'C5', duration: '16n' },
+      { time: '12:0.75', note: 'F#5', duration: '16n' },
+      { time: '12:1', note: 'A5', duration: '8n' },
+      { time: '12:2.5', note: 'B4', duration: '16n' },
+      { time: '12:2.75', note: 'F5', duration: '16n' },
+      { time: '12:3', note: 'Ab5', duration: '8n' },
+      
+      // High register response to Neapolitan
+      { time: '13:0', note: 'G5', duration: '8n' },
+      { time: '13:0.5', note: 'Bb5', duration: '8n' },
+      { time: '13:1', note: 'Eb6', duration: '4n' },
+      { time: '13:2', note: 'E5', duration: '8n' },
+      { time: '13:2.5', note: 'A5', duration: '8n' },
+      { time: '13:3', note: 'C#6', duration: '4n' },
+      
+      // Final phrase - high register
+      { time: '14:0.5', note: 'D6', duration: '8n' },
+      { time: '14:1.5', note: 'A5', duration: '8n' },
+      { time: '14:2.5', note: 'Bb5', duration: '8n' },
+      { time: '14:3.5', note: 'A5', duration: '8n' },
+      
+      // Final authentic cadence - high register
+      { time: '15:0', note: 'E6', duration: '2n' }, // Dominant
+      { time: '15:2', note: 'D6', duration: '2n' }  // Tonic
+    ];
 
-    // Create a sequence from the notes
+    console.log("Enhanced spooky melody created with", spookyMelody.length, "notes/chords and", upperMelody.length, "upper register notes");
+
+    // Create a sequence from the main organ notes
     this.musicPart = new Tone.Part((time, value) => {
       if (this.musicSynth) {
         this.musicSynth.triggerAttackRelease(value.note, value.duration, time);
       }
     }, spookyMelody);
 
-    // Set part to loop
+    // Create a sequence for the upper register countermelody
+    const upperPart = new Tone.Part((time, value) => {
+      upperSynth.triggerAttackRelease(value.note, value.duration, time);
+    }, upperMelody);
+
+    // Set parts to loop
     this.musicPart.loop = true;
-    this.musicPart.loopEnd = '8:0'; // 8 measures
+    this.musicPart.loopEnd = '16:0'; // 16 measures
     
-    console.log("Music part created and set to loop");
+    upperPart.loop = true;
+    upperPart.loopEnd = '16:0'; // 16 measures
+    
+    // Store the upper part to start/stop with main part
+    (this.musicPart as any).upperPart = upperPart;
+    
+    // We'll manually start/stop the upper part in startMusic and stopMusic methods
+    
+    console.log("Music parts created and set to loop");
   }
 
   /**
@@ -637,9 +832,19 @@ export class SoundEngine {
       console.log("Setting tempo to", Tone.Transport.bpm.value, "BPM");
       
       Tone.Transport.start();
+      
+      // Start the main organ part
       this.musicPart.start(0);
+      
+      // Start the upper register part if it exists
+      const upperPart = (this.musicPart as any).upperPart;
+      if (upperPart) {
+        upperPart.start(0);
+        console.log("Upper register countermelody started");
+      }
+      
       this.musicIsPlaying = true;
-      console.log("Spooky church organ background music started");
+      console.log("Enhanced spooky church organ background music started");
     } else {
       console.error("Music part not created - cannot start music");
     }
@@ -652,9 +857,19 @@ export class SoundEngine {
     if (!this.isInitialized || !this.musicIsPlaying) return;
 
     if (this.musicPart) {
+      // Stop the main organ part
       this.musicPart.stop();
+      
+      // Stop the upper register part if it exists
+      const upperPart = (this.musicPart as any).upperPart;
+      if (upperPart) {
+        upperPart.stop();
+        console.log("Upper register countermelody stopped");
+      }
+      
       Tone.Transport.stop();
       this.musicIsPlaying = false;
+      console.log("Background music stopped");
     }
   }
 

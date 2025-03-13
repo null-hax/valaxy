@@ -78,11 +78,18 @@ The sound will be added to a queue and played as soon as possible to prevent tim
 
 ## Background Music
 
-The background music is a spooky church organ melody that creates an eerie, vampire-themed atmosphere. It's implemented using a `Tone.Part` that triggers notes on a `Tone.PolySynth` with FM synthesis to create an authentic church organ sound.
+The background music is a spooky church organ melody that creates an eerie, vampire-themed atmosphere. It features a multi-layered approach with two distinct instruments working together to create a rich, immersive soundscape.
+
+### Multi-Instrument Approach
+
+The background music uses two complementary instruments:
+
+1. **Main Church Organ**: A deep, resonant bass and mid-range instrument that provides the harmonic foundation
+2. **Upper Register Countermelody**: A brighter, more ethereal instrument that adds melodic interest in the higher registers
 
 ### Church Organ Sound Design
 
-The church organ sound is created using:
+The main church organ sound is created using:
 
 1. **FM Synthesis**: Using `Tone.FMSynth` with carefully tuned harmonicity and modulation parameters
 2. **Reverb**: Adding spaciousness and depth to simulate a cathedral environment
@@ -90,14 +97,32 @@ The church organ sound is created using:
 4. **Tremolo**: Adding a slight wavering to the sound
 5. **Filter**: Shaping the frequency response for a more authentic organ sound
 
+The upper register countermelody uses:
+
+1. **AM Synthesis**: Using `Tone.AMSynth` for a different timbral quality that complements the main organ
+2. **Enhanced Reverb**: Longer decay time for a more ethereal quality
+3. **Deeper Chorus**: More pronounced chorus effect for a shimmering quality
+4. **Faster Tremolo**: Quicker modulation for a more animated sound
+
 ### Spooky Melody
 
-The melody is composed in D minor (D, E, F, G, A, Bb, C) to create a haunting, gothic atmosphere. It includes:
+The melody spans 16 measures and is composed in D minor (D, E, F, G, A, Bb, C) to create a haunting, gothic atmosphere. It includes:
 
 - Dissonant chords for tension
 - Diminished chords for an unsettling feeling
 - Chromatic passages for a sense of unease
 - Low register notes for a dark, ominous quality
+- Modal mixture (borrowing from the parallel major) for harmonic interest
+- Neapolitan chords for a distinctive gothic flavor
+- Authentic cadences for resolution
+
+The upper register countermelody adds:
+
+- Ornamental flourishes in the high register
+- Arpeggiated figures that complement the main melody
+- Sustained high notes that create tension
+- Echoes and responses to the main melodic phrases
+- Harmonic minor scale passages for an exotic quality
 
 ### Controls
 
