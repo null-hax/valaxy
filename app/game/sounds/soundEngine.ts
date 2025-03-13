@@ -24,7 +24,8 @@ export enum SoundEffect {
 }
 
 export class SoundEngine {
-  private isMuted: boolean = false;
+  private _isMuted: boolean = false;
+  private _volumeDb: number = -10; // Default volume in decibels
   private masterVolume: Tone.Volume;
   private isInitialized: boolean = false;
   private sounds: Map<SoundEffect, Tone.ToneAudioNode> = new Map();
@@ -34,10 +35,14 @@ export class SoundEngine {
 
   constructor() {
     // Create a master volume node
-    this.masterVolume = new Tone.Volume(-10).toDestination();
+    this.masterVolume = new Tone.Volume(-10);
     
-    // Connect it to the master output
-    Tone.Destination.chain(this.masterVolume);
+    // Connect it to the destination (output)
+    // Fix: Use getDestination() instead of deprecated Destination
+    // Fix: Connect masterVolume to destination, not the other way around
+    this.masterVolume.connect(Tone.getDestination());
+    
+    console.log("SoundEngine initialized with volume:", this._volumeDb, "dB");
   }
 
   /**
@@ -48,8 +53,16 @@ export class SoundEngine {
     if (this.isInitialized) return;
     
     try {
+      console.log("Initializing sound engine...");
+      console.log("Audio context state before start:", Tone.context.state);
+      
       // Start the Tone.js audio context with user gesture
       await Tone.start();
+      console.log("Tone.start() completed, context state:", Tone.context.state);
+      
+      // Force resume audio context
+      await Tone.context.resume();
+      console.log("Tone.context.resume() completed, context state:", Tone.context.state);
       
       // Create various sound effects
       this.createSoundEffects();
@@ -57,20 +70,25 @@ export class SoundEngine {
       // Create background music
       this.createBackgroundMusic();
       
-      // Set volume to ensure it's audible
-      this.masterVolume.volume.value = -10;
-      
-      // Force resume audio context
-      await Tone.context.resume();
-      
-      // Play a silent sound to ensure audio context is running
-      const silentOsc = new Tone.Oscillator().toDestination();
-      silentOsc.volume.value = -100; // Essentially silent
-      silentOsc.start();
-      silentOsc.stop("+0.1"); // Stop after 100ms
+      // Set volume based on mute state
+      if (this._isMuted) {
+        this.masterVolume.volume.value = -Infinity;
+        console.log("Sound is muted, setting volume to -Infinity");
+      } else {
+        this.masterVolume.volume.value = this._volumeDb;
+        console.log("Sound is unmuted, setting volume to:", this._volumeDb, "dB");
+      }
       
       this.isInitialized = true;
-      console.log("Sound engine initialized, context state:", Tone.context.state);
+      console.log("Sound engine initialized successfully, context state:", Tone.context.state);
+      
+      // Play a sound to confirm initialization
+      setTimeout(() => {
+        if (!this._isMuted) {
+          this.playSound(SoundEffect.MENU_SELECT);
+          console.log("Played initialization confirmation sound");
+        }
+      }, 500);
     } catch (error) {
       console.error("Failed to initialize sound engine:", error);
     }
@@ -84,22 +102,36 @@ export class SoundEngine {
     const playerShoot = new Tone.NoiseSynth({
       noise: { type: 'white' },
       envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
-    }).connect(
-      new Tone.Filter({ frequency: 2000, type: 'highpass' }).connect(
-        new Tone.Volume(-15).connect(this.masterVolume)
-      )
-    );
+    });
+    
+    // Create and connect the filter and volume
+    const playerShootFilter = new Tone.Filter({ frequency: 2000, type: 'highpass' });
+    const playerShootVolume = new Tone.Volume(-15);
+    
+    // Connect the chain: playerShoot -> filter -> volume -> masterVolume
+    playerShoot.connect(playerShootFilter);
+    playerShootFilter.connect(playerShootVolume);
+    playerShootVolume.connect(this.masterVolume);
+    
+    console.log("Player shoot sound created and connected to master volume");
     this.sounds.set(SoundEffect.PLAYER_SHOOT, playerShoot);
 
     // Enemy Shoot - A lower-pitched blip
     const enemyShoot = new Tone.NoiseSynth({
       noise: { type: 'pink' },
       envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.1 }
-    }).connect(
-      new Tone.Filter({ frequency: 800, type: 'lowpass' }).connect(
-        new Tone.Volume(-18).connect(this.masterVolume)
-      )
-    );
+    });
+    
+    // Create and connect the filter and volume
+    const enemyShootFilter = new Tone.Filter({ frequency: 800, type: 'lowpass' });
+    const enemyShootVolume = new Tone.Volume(-18);
+    
+    // Connect the chain: enemyShoot -> filter -> volume -> masterVolume
+    enemyShoot.connect(enemyShootFilter);
+    enemyShootFilter.connect(enemyShootVolume);
+    enemyShootVolume.connect(this.masterVolume);
+    
+    console.log("Enemy shoot sound created and connected to master volume");
     this.sounds.set(SoundEffect.ENEMY_SHOOT, enemyShoot);
 
     // Player Explosion - A descending noise burst
@@ -257,55 +289,130 @@ export class SoundEngine {
   }
 
   /**
-   * Create a simple background music sequence
+   * Create a spooky church organ background music
    */
   private createBackgroundMusic(): void {
-    // Create a poly synth for playing multiple notes
-    this.musicSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'square' },
-      envelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 0.1 }
-    }).connect(
-      new Tone.BitCrusher(8).connect(
-        new Tone.Filter({
-          frequency: 1000,
-          type: 'lowpass',
-          rolloff: -12
-        }).connect(
-          new Tone.Volume(-20).connect(this.masterVolume)
-        )
-      )
-    );
+    console.log("Creating spooky church organ background music");
+    
+    // Create a church organ-like synth
+    this.musicSynth = new Tone.PolySynth(Tone.FMSynth, {
+      harmonicity: 2,
+      modulationIndex: 1.5,
+      oscillator: {
+        type: "sine"
+      },
+      envelope: {
+        attack: 0.05,
+        decay: 0.3,
+        sustain: 0.7,
+        release: 1.2
+      },
+      modulation: {
+        type: "square"
+      },
+      modulationEnvelope: {
+        attack: 0.1,
+        decay: 0.5,
+        sustain: 0.2,
+        release: 0.5
+      }
+    });
+    
+    // Add effects to create a church organ sound
+    const reverb = new Tone.Reverb({
+      decay: 6,
+      wet: 0.3
+    });
+    
+    const chorus = new Tone.Chorus({
+      frequency: 0.5,
+      delayTime: 3.5,
+      depth: 0.7,
+      wet: 0.2
+    }).start();
+    
+    const tremolo = new Tone.Tremolo({
+      frequency: 2,
+      depth: 0.2
+    }).start();
+    
+    const filter = new Tone.Filter({
+      frequency: 800,
+      type: 'lowpass',
+      rolloff: -24
+    });
+    
+    // Connect the effects chain
+    this.musicSynth.connect(chorus);
+    chorus.connect(tremolo);
+    tremolo.connect(reverb);
+    reverb.connect(filter);
+    filter.connect(new Tone.Volume(-3).connect(this.masterVolume));
+    
+    console.log("Church organ synth and effects created");
 
-    // Vampire-themed ominous bass line
-    const bassLine = [
-      { time: 0, note: 'E2', duration: '8n' },
-      { time: '0:1', note: 'G2', duration: '8n' },
-      { time: '0:2', note: 'B2', duration: '8n' },
-      { time: '0:3', note: 'D3', duration: '8n' },
-      { time: '1:0', note: 'C2', duration: '8n' },
-      { time: '1:1', note: 'E2', duration: '8n' },
-      { time: '1:2', note: 'G2', duration: '8n' },
-      { time: '1:3', note: 'B2', duration: '8n' },
-      { time: '2:0', note: 'A1', duration: '8n' },
-      { time: '2:1', note: 'C2', duration: '8n' },
-      { time: '2:2', note: 'E2', duration: '8n' },
-      { time: '2:3', note: 'G2', duration: '8n' },
-      { time: '3:0', note: 'B1', duration: '8n' },
-      { time: '3:1', note: 'D2', duration: '8n' },
-      { time: '3:2', note: 'F#2', duration: '8n' },
-      { time: '3:3', note: 'A2', duration: '8n' },
+    // Spooky church organ melody in minor key
+    // Using D minor (D, E, F, G, A, Bb, C)
+    const spookyMelody = [
+      // Main theme - haunting melody
+      { time: 0, note: 'D3', duration: '4n' },
+      { time: '0:1', note: 'F3', duration: '4n' },
+      { time: '0:2', note: 'A3', duration: '4n' },
+      { time: '0:3', note: 'D4', duration: '4n' },
+      
+      // Descending line
+      { time: '1:0', note: 'C4', duration: '8n' },
+      { time: '1:1', note: 'Bb3', duration: '8n' },
+      { time: '1:2', note: 'A3', duration: '8n' },
+      { time: '1:3', note: 'G3', duration: '8n' },
+      
+      // Dissonant chord
+      { time: '2:0', note: ['E3', 'Bb3'], duration: '2n' },
+      { time: '2:2', note: 'F3', duration: '4n' },
+      { time: '2:3', note: 'A3', duration: '4n' },
+      
+      // Resolving phrase with diminished chord
+      { time: '3:0', note: 'D3', duration: '8n' },
+      { time: '3:1', note: 'F3', duration: '8n' },
+      { time: '3:2', note: ['D3', 'F3', 'Bb3'], duration: '4n' },
+      { time: '3:3', note: 'A3', duration: '8n.' },
+      
+      // Second phrase - lower register
+      { time: '4:0', note: 'D2', duration: '4n' },
+      { time: '4:1', note: 'A2', duration: '4n' },
+      { time: '4:2', note: 'D3', duration: '4n' },
+      { time: '4:3', note: 'F3', duration: '4n' },
+      
+      // Chromatic descent
+      { time: '5:0', note: 'E3', duration: '8n' },
+      { time: '5:1', note: 'Eb3', duration: '8n' },
+      { time: '5:2', note: 'D3', duration: '8n' },
+      { time: '5:3', note: 'C#3', duration: '8n' },
+      
+      // Tension building
+      { time: '6:0', note: ['C3', 'G3'], duration: '2n' },
+      { time: '6:2', note: ['Bb2', 'F3'], duration: '4n' },
+      { time: '6:3', note: 'A2', duration: '4n' },
+      
+      // Final cadence
+      { time: '7:0', note: ['D2', 'A2', 'D3'], duration: '2n' },
+      { time: '7:2', note: ['D2', 'F2', 'A2', 'D3'], duration: '2n' }
     ];
+
+    console.log("Spooky melody created with", spookyMelody.length, "notes/chords");
 
     // Create a sequence from the notes
     this.musicPart = new Tone.Part((time, value) => {
       if (this.musicSynth) {
         this.musicSynth.triggerAttackRelease(value.note, value.duration, time);
       }
-    }, bassLine);
+    }, spookyMelody);
 
     // Set part to loop
     this.musicPart.loop = true;
-    this.musicPart.loopEnd = '4:0';
+    this.musicPart.loopEnd = '8:0'; // 8 measures
+    
+    console.log("Music part created and set to loop");
   }
 
   /**
@@ -315,10 +422,27 @@ export class SoundEngine {
   private soundQueue: Array<{sound: SoundEffect}> = [];
   private isProcessingQueue: boolean = false;
   
+  // Flag to disable sound effects but allow background music
+  private _soundEffectsDisabled: boolean = true;
+
   public playSound(sound: SoundEffect): void {
-    if (!this.isInitialized || this.isMuted) return;
+    if (!this.isInitialized) {
+      console.warn(`Cannot play sound ${SoundEffect[sound]} - sound engine not initialized`);
+      return;
+    }
+    
+    if (this._isMuted) {
+      console.log(`Sound ${SoundEffect[sound]} not played because audio is muted`);
+      return;
+    }
+
+    if (this._soundEffectsDisabled) {
+      console.log(`Sound ${SoundEffect[sound]} not played because sound effects are disabled`);
+      return;
+    }
 
     try {
+      console.log(`Queueing sound: ${SoundEffect[sound]}, context state: ${Tone.context.state}`);
       // Instead of playing immediately, add to queue
       this.soundQueue.push({ sound });
       
@@ -337,6 +461,17 @@ export class SoundEngine {
     this.isProcessingQueue = true;
     
     try {
+      // Ensure audio context is running before processing queue
+      if (Tone.context.state !== 'running') {
+        try {
+          await Tone.start();
+          await Tone.context.resume();
+          console.log("Audio context resumed in processQueue, state:", Tone.context.state);
+        } catch (error) {
+          console.error("Failed to resume audio context in processQueue:", error);
+        }
+      }
+      
       // Process one sound at a time with proper spacing
       while (this.soundQueue.length > 0) {
         const { sound } = this.soundQueue.shift()!;
@@ -347,7 +482,7 @@ export class SoundEngine {
         }
         
         // Play the sound with current time
-        this.playSoundImmediately(sound);
+        await this.playSoundImmediately(sound);
         
         // Increased delay between processing queue items to prevent timing conflicts
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -359,76 +494,101 @@ export class SoundEngine {
     }
   }
   
-  private playSoundImmediately(sound: SoundEffect): void {
+  private async playSoundImmediately(sound: SoundEffect): Promise<void> {
     const synth = this.sounds.get(sound);
-    if (!synth) return;
+    if (!synth) {
+      console.error(`Sound effect ${SoundEffect[sound]} not found in sounds map`);
+      return;
+    }
 
     try {
       // Make sure audio context is running
       if (Tone.context.state !== 'running') {
-        Tone.context.resume();
+        try {
+          await Tone.start();
+          await Tone.context.resume();
+          console.log("Audio context resumed in playSoundImmediately, state:", Tone.context.state);
+        } catch (error) {
+          console.error("Failed to resume audio context in playSoundImmediately:", error);
+          return; // Don't try to play if we can't resume
+        }
       }
       
       // Get current time for each sound with a larger increment to ensure uniqueness
       const now = Tone.now() + Math.random() * 0.05;
+      console.log(`Playing sound: ${SoundEffect[sound]}, muted: ${this._isMuted}, volume: ${this._volumeDb}dB`);
       
       // Play different sounds based on the effect type
       switch (sound) {
         case SoundEffect.PLAYER_SHOOT:
           (synth as Tone.NoiseSynth).triggerAttackRelease('16n', now);
+          console.log("Player shoot sound triggered");
           break;
 
         case SoundEffect.ENEMY_SHOOT:
           (synth as Tone.NoiseSynth).triggerAttackRelease('16n', now);
+          console.log("Enemy shoot sound triggered");
           break;
 
         case SoundEffect.PLAYER_EXPLOSION:
           (synth as Tone.Synth).triggerAttackRelease('C2', '8n', now);
+          console.log("Player explosion sound triggered");
           break;
 
         case SoundEffect.ENEMY_EXPLOSION:
           (synth as Tone.NoiseSynth).triggerAttackRelease('16n', now);
+          console.log("Enemy explosion sound triggered");
           break;
 
         case SoundEffect.BOSS_EXPLOSION:
           (synth as Tone.NoiseSynth).triggerAttackRelease('4n', now);
+          console.log("Boss explosion sound triggered");
           break;
 
         case SoundEffect.LEVEL_COMPLETE:
           (synth as Tone.Synth).triggerAttackRelease('C4', '8n', now);
+          console.log("Level complete sound triggered");
           break;
 
         case SoundEffect.GAME_OVER:
           (synth as Tone.Synth).triggerAttackRelease('C4', '4n', now);
+          console.log("Game over sound triggered");
           break;
 
         case SoundEffect.MENU_SELECT:
           (synth as Tone.MembraneSynth).triggerAttackRelease('C3', '32n', now);
+          console.log("Menu select sound triggered");
           break;
 
         case SoundEffect.MENU_NAVIGATE:
           (synth as Tone.MembraneSynth).triggerAttackRelease('G3', '32n', now);
+          console.log("Menu navigate sound triggered");
           break;
 
         case SoundEffect.COIN_INSERT:
           (synth as Tone.MetalSynth).triggerAttackRelease('32n', now);
+          console.log("Coin insert sound triggered");
           break;
 
         case SoundEffect.GAME_START:
           (synth as Tone.PolySynth).triggerAttackRelease('C4', '8n', now);
+          console.log("Game start sound triggered");
           break;
 
         case SoundEffect.POWER_UP:
           // Simplified power-up sound to avoid timing issues
           (synth as Tone.Synth).triggerAttackRelease('C5', '16n', now);
+          console.log("Power up sound triggered");
           break;
 
         case SoundEffect.VAMPIRE_CAPTURE:
           (synth as Tone.FMSynth).triggerAttackRelease('G2', '2n', now);
+          console.log("Vampire capture sound triggered");
           break;
 
         case SoundEffect.VAMPIRE_TRANSFORM:
           (synth as Tone.NoiseSynth).triggerAttackRelease('4n', now);
+          console.log("Vampire transform sound triggered");
           break;
       }
     } catch (error) {
@@ -439,15 +599,49 @@ export class SoundEngine {
   /**
    * Start playing the background music
    */
-  public startMusic(): void {
-    if (!this.isInitialized || this.isMuted || this.musicIsPlaying) return;
+  public async startMusic(): Promise<void> {
+    console.log("Starting background music...");
+    console.log("Initialized:", this.isInitialized, "Muted:", this._isMuted, "Already playing:", this.musicIsPlaying);
+    
+    if (!this.isInitialized) {
+      console.warn("Cannot start music - sound engine not initialized");
+      return;
+    }
+    
+    if (this._isMuted) {
+      console.log("Music not started because audio is muted");
+      return;
+    }
+    
+    if (this.musicIsPlaying) {
+      console.log("Music is already playing");
+      return;
+    }
+
+    // Ensure audio context is running
+    if (Tone.context.state !== 'running') {
+      try {
+        console.log("Audio context not running, attempting to start...");
+        await Tone.start();
+        await Tone.context.resume();
+        console.log("Audio context resumed in startMusic, state:", Tone.context.state);
+      } catch (error) {
+        console.error("Failed to resume audio context in startMusic:", error);
+        return; // Don't try to play if we can't resume
+      }
+    }
 
     if (this.musicPart) {
-      // Set a slower tempo for the eerie vampire music
-      Tone.Transport.bpm.value = 90;
+      // Set a slower tempo for the spooky church organ music
+      Tone.Transport.bpm.value = 70; // Slower tempo for more dramatic effect
+      console.log("Setting tempo to", Tone.Transport.bpm.value, "BPM");
+      
       Tone.Transport.start();
       this.musicPart.start(0);
       this.musicIsPlaying = true;
+      console.log("Spooky church organ background music started");
+    } else {
+      console.error("Music part not created - cannot start music");
     }
   }
 
@@ -468,7 +662,7 @@ export class SoundEngine {
    * Mute all sounds
    */
   public mute(): void {
-    this.isMuted = true;
+    this._isMuted = true;
     this.masterVolume.volume.value = -Infinity;
   }
 
@@ -476,29 +670,87 @@ export class SoundEngine {
    * Unmute all sounds
    */
   public unmute(): void {
-    this.isMuted = false;
-    this.masterVolume.volume.value = -10;
+    this._isMuted = false;
+    this.masterVolume.volume.value = this._volumeDb;
   }
 
   /**
    * Toggle mute state
    */
-  public toggleMute(): boolean {
-    if (this.isMuted) {
+  public async toggleMute(): Promise<boolean> {
+    // Ensure audio context is resumed
+    try {
+      await Tone.start();
+      await Tone.context.resume();
+      console.log("Audio context resumed in toggleMute, state:", Tone.context.state);
+    } catch (error) {
+      console.error("Failed to resume audio context in toggleMute:", error);
+    }
+    
+    const wasMuted = this._isMuted;
+    
+    if (wasMuted) {
       this.unmute();
+      console.log("Sound unmuted, volume set to:", this._volumeDb, "dB");
+      
+      // Play a confirmation sound when unmuting
+      setTimeout(() => {
+        this.playSound(SoundEffect.MENU_SELECT);
+      }, 100);
     } else {
       this.mute();
+      console.log("Sound muted");
     }
-    return this.isMuted;
+    
+    console.log("Mute state toggled from", wasMuted, "to", this._isMuted);
+    return this._isMuted;
+  }
+
+  /**
+   * Get current mute state
+   */
+  public getMuteState(): boolean {
+    return this._isMuted;
   }
 
   /**
    * Set the master volume (in decibels)
+   * @param volumeDb Volume in decibels (range: -60 to 0)
    */
   public setVolume(volumeDb: number): void {
-    if (!this.isMuted) {
-      this.masterVolume.volume.value = Math.max(-60, Math.min(0, volumeDb));
+    // Store the volume value even if muted
+    this._volumeDb = Math.max(-60, Math.min(0, volumeDb));
+    
+    // Only apply if not muted
+    if (!this._isMuted) {
+      this.masterVolume.volume.value = this._volumeDb;
+      console.log("Volume set to:", this._volumeDb, "dB");
     }
+  }
+  
+  /**
+   * Get the current volume in decibels
+   */
+  public getVolume(): number {
+    return this._volumeDb;
+  }
+
+  /**
+   * Enable or disable sound effects
+   * This allows background music to play while sound effects are disabled
+   * @param enabled Whether sound effects should be enabled
+   */
+  public setSoundEffectsEnabled(enabled: boolean): void {
+    this._soundEffectsDisabled = !enabled;
+    console.log(`Sound effects ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Check if sound effects are enabled
+   * @returns True if sound effects are enabled, false otherwise
+   */
+  public areSoundEffectsEnabled(): boolean {
+    return !this._soundEffectsDisabled;
   }
 
   /**

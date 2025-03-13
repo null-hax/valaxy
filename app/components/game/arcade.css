@@ -330,3 +330,35 @@
 }
 
 /* Blood drip animation removed as requested */
+
+/* Arcade button styling */
+.arcade-button {
+  background-color: #550000;
+  border: 2px solid #FF0033;
+  border-radius: 4px;
+  color: white;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow:
+    0 0 10px rgba(255, 0, 51, 0.5),
+    inset 0 0 5px rgba(255, 0, 0, 0.3);
+  text-shadow: 0 0 5px rgba(255, 0, 0, 0.7);
+}
+
+.arcade-button:hover {
+  background-color: #770000;
+  box-shadow:
+    0 0 15px rgba(255, 0, 51, 0.7),
+    inset 0 0 8px rgba(255, 0, 0, 0.5);
+  transform: scale(1.05);
+}
+
+.arcade-button:active {
+  background-color: #990000;
+  transform: scale(0.95);
+  box-shadow:
+    0 0 5px rgba(255, 0, 51, 0.3),
+    inset 0 0 10px rgba(255, 0, 0, 0.7);
+}

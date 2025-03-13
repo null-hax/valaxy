@@ -112,6 +112,9 @@ export class Game {
     // Initialize sound engine (must be called after a user interaction)
     await this.soundEngine.init();
     
+    // Disable sound effects but keep background music enabled
+    this.soundEngine.setSoundEffectsEnabled(false);
+    
     // Play coin insert sound to simulate arcade start
     this.soundEngine.playSound(SoundEffect.COIN_INSERT);
     
@@ -120,6 +123,10 @@ export class Game {
     
     // Start the game loop
     this.gameLoop.start();
+    
+    // Start background music
+    await this.soundEngine.startMusic();
+    console.log("Background music started in Game.init()");
   }
   
   /**
@@ -254,7 +261,9 @@ export class Game {
       this.stateTime = 0;
       
       // Start background music
-      this.soundEngine.startMusic();
+      this.soundEngine.startMusic().catch(err => {
+        console.error("Failed to start background music:", err);
+      });
     }
   }
   
@@ -2345,6 +2354,56 @@ export class Game {
    */
   public getInputHandler(): InputHandler {
     return this.inputHandler;
+  }
+
+  /**
+   * Toggle sound on/off
+   * @returns The new mute state (true if muted, false if unmuted)
+   */
+  public async toggleSound(): Promise<boolean> {
+    return await this.soundEngine.toggleMute();
+  }
+
+  /**
+   * Get current sound mute state
+   * @returns True if sound is muted, false otherwise
+   */
+  public isSoundMuted(): boolean {
+    return this.soundEngine.getMuteState();
+  }
+  
+  /**
+   * Set the sound volume
+   * @param volumeDb Volume in decibels (range: -60 to 0)
+   */
+  public setVolume(volumeDb: number): void {
+    this.soundEngine.setVolume(volumeDb);
+  }
+  
+  /**
+   * Get the current sound volume
+   * @returns Volume in decibels
+   */
+  public getVolume(): number {
+    return this.soundEngine.getVolume();
+  }
+  
+  /**
+   * Toggle sound effects on/off
+   * @returns The new sound effects state (true if enabled, false if disabled)
+   */
+  public toggleSoundEffects(): boolean {
+    const newState = !this.soundEngine.areSoundEffectsEnabled();
+    this.soundEngine.setSoundEffectsEnabled(newState);
+    return newState;
+  }
+  
+  /**
+   * Check if sound effects are enabled
+   * @returns True if sound effects are enabled, false otherwise
+   */
+  public areSoundEffectsEnabled(): boolean {
+    return this.soundEngine.areSoundEffectsEnabled();
   }
 
   /**
