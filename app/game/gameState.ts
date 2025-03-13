@@ -2261,6 +2261,18 @@ export class Game {
   }
   
   /**
+   * Update renderer dimensions to match the current display
+   * This helps with responsive sizing on different devices
+   */
+  public updateRendererDimensions(width: number, height: number, aspectRatio: number): void {
+    // Update the renderer with the new dimensions
+    // This ensures the game visuals scale properly with the canvas size
+    if (this.renderer) {
+      this.renderer.updateDimensions(width, height, aspectRatio);
+    }
+  }
+
+  /**
    * Get the input handler
    */
   public getInputHandler(): InputHandler {

@@ -74,6 +74,23 @@ export class Renderer {
   }
 
   /**
+   * Update dimensions for responsive display
+   * This allows the renderer to adapt to different screen sizes and aspect ratios
+   */
+  public updateDimensions(displayWidth: number, displayHeight: number, aspectRatio: number): void {
+    // Store the logical game dimensions (these remain constant for gameplay)
+    const gameWidth = this.width;
+    const gameHeight = this.height;
+    
+    // Update the canvas display size to match the container
+    this.canvas.style.width = `${displayWidth}px`;
+    this.canvas.style.height = `${displayHeight}px`;
+    
+    // The actual canvas dimensions and game logic remain at the base resolution
+    // This ensures consistent gameplay while allowing responsive display
+  }
+
+  /**
    * Clear the canvas
    */
   public clear(): void {
