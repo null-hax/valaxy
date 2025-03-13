@@ -416,6 +416,8 @@ export class Game {
       // Reset player name and position for high score entry
       this.playerName = '';
       this.nameEntryPosition = 0;
+      this.nameEntryDebounce = 0;
+      this.confirmDebounce = 0;
       
       // For debugging: Always go to high score screen
       console.log('Game over - Always transitioning to HIGH_SCORE state for debugging');
@@ -440,9 +442,13 @@ export class Game {
     // Prevent default to avoid browser scrolling etc.
     e.preventDefault();
     
+    // Don't process if we've already entered all characters
     if (this.nameEntryPosition >= this.MAX_NAME_LENGTH) return;
     
-    // Handle letter/number keys
+    // Don't process if we're still in debounce period
+    if (this.nameEntryDebounce > 0) return;
+    
+    // Handle letter/number keys for direct input
     if (/^[a-zA-Z0-9]$/.test(e.key)) {
       // Convert to uppercase
       const char = e.key.toUpperCase();
@@ -456,8 +462,34 @@ export class Game {
                           this.playerName.substring(this.nameEntryPosition + 1);
       }
       
-      console.log('Updated name to:', this.playerName);
+      // Advance to next position
+      this.nameEntryPosition++;
+      console.log('Direct input:', char, 'Updated name to:', this.playerName);
       this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
+      this.nameEntryDebounce = this.DEBOUNCE_TIME;
+      
+      // If we've entered all characters, submit the high score
+      if (this.nameEntryPosition >= this.MAX_NAME_LENGTH) {
+        this.confirmHighScore();
+      }
+    }
+    // Handle backspace to delete characters
+    else if (e.key === 'Backspace') {
+      if (this.nameEntryPosition > 0) {
+        // Move back one position
+        this.nameEntryPosition--;
+        
+        // Remove the character at the current position
+        if (this.nameEntryPosition < this.playerName.length) {
+          this.playerName = this.playerName.substring(0, this.nameEntryPosition) +
+                           (this.nameEntryPosition < this.playerName.length - 1 ?
+                            this.playerName.substring(this.nameEntryPosition + 1) : '');
+        }
+        
+        console.log('Backspace pressed, updated name to:', this.playerName);
+        this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
+        this.nameEntryDebounce = this.DEBOUNCE_TIME;
+      }
     }
     // Handle arrow keys
     else if (e.key === 'ArrowUp') {
@@ -469,6 +501,7 @@ export class Game {
                         this.playerName.substring(this.nameEntryPosition + 1);
       console.log('Changed character to:', this.playerName);
       this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
+      this.nameEntryDebounce = this.DEBOUNCE_TIME;
     }
     else if (e.key === 'ArrowDown') {
       const currentChar = this.playerName.charAt(this.nameEntryPosition) || 'A';
@@ -479,6 +512,7 @@ export class Game {
                         this.playerName.substring(this.nameEntryPosition + 1);
       console.log('Changed character to:', this.playerName);
       this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
+      this.nameEntryDebounce = this.DEBOUNCE_TIME;
     }
     // Handle Enter/Space to confirm character
     else if (e.key === 'Enter' || e.key === ' ') {
@@ -490,23 +524,31 @@ export class Game {
       this.nameEntryPosition++;
       console.log('Advanced to position:', this.nameEntryPosition);
       this.soundEngine.playSound(SoundEffect.MENU_SELECT);
+      this.confirmDebounce = this.CONFIRM_DEBOUNCE_TIME;
       
       // If we've entered all characters, submit the high score
       if (this.nameEntryPosition >= this.MAX_NAME_LENGTH) {
-        console.log('Name entry complete, submitting high score');
-        setTimeout(() => {
-          this.addHighScore();
-          
-          // Remove keyboard handler
-          window.removeEventListener('keydown', this.boundKeyDownHandler);
-          console.log('Removed high score keyboard handler');
-          
-          // Return to title screen
-          this.state = GameState.TITLE;
-          this.stateTime = 0;
-        }, 500);
+        this.confirmHighScore();
       }
     }
+  }
+  
+  /**
+   * Confirm high score and transition back to title screen
+   */
+  private confirmHighScore(): void {
+    console.log('Name entry complete, submitting high score');
+    setTimeout(() => {
+      this.addHighScore();
+      
+      // Remove keyboard handler
+      window.removeEventListener('keydown', this.boundKeyDownHandler);
+      console.log('Removed high score keyboard handler');
+      
+      // Return to title screen
+      this.state = GameState.TITLE;
+      this.stateTime = 0;
+    }, 500);
   }
   
   // Player name for high score
@@ -547,6 +589,11 @@ export class Game {
       if (this.playerName.length === 0) {
         this.playerName = 'A';
         console.log('Initialized playerName to:', this.playerName);
+      }
+      
+      // Ensure the current position has a character
+      if (this.nameEntryPosition >= this.playerName.length) {
+        this.playerName += 'A';
       }
       
       // Move selection up/down through characters with debounce
@@ -593,11 +640,6 @@ export class Game {
       // Special check for space key since it's important for confirmation
       if (this.inputHandler.isSpacePressed() && this.confirmDebounce <= 0) {
         console.log('SPACE pressed, confirming character');
-        // If no character is selected, default to 'A'
-        if (this.nameEntryPosition >= this.playerName.length) {
-          this.playerName += 'A';
-        }
-        
         this.nameEntryPosition++;
         console.log('Advanced to position:', this.nameEntryPosition);
         this.soundEngine.playSound(SoundEffect.MENU_SELECT);
@@ -605,16 +647,17 @@ export class Game {
         this.stateTime = 0;
         // Set confirm debounce timer to prevent multiple confirmations
         this.confirmDebounce = this.CONFIRM_DEBOUNCE_TIME;
+        
+        // If we've entered all characters, submit the high score
+        if (this.nameEntryPosition >= this.MAX_NAME_LENGTH) {
+          this.confirmHighScore();
+        }
+        
         return; // Skip the regular check below
       }
           
       if (confirmPressed && this.confirmDebounce <= 0) {
         console.log('FIRE/START pressed, confirming character');
-        // If no character is selected, default to 'A'
-        if (this.nameEntryPosition >= this.playerName.length) {
-          this.playerName += 'A';
-        }
-        
         this.nameEntryPosition++;
         console.log('Advanced to position:', this.nameEntryPosition);
         this.soundEngine.playSound(SoundEffect.MENU_SELECT);
@@ -622,6 +665,11 @@ export class Game {
         this.stateTime = 0;
         // Set confirm debounce timer to prevent multiple confirmations
         this.confirmDebounce = this.CONFIRM_DEBOUNCE_TIME;
+        
+        // If we've entered all characters, submit the high score
+        if (this.nameEntryPosition >= this.MAX_NAME_LENGTH) {
+          this.confirmHighScore();
+        }
       }
     } else {
       console.log('Name entry complete:', this.playerName);
@@ -1903,12 +1951,32 @@ export class Game {
       });
     }
     
-    // Instructions
+    // Instructions - multiple lines for better readability
+    this.renderer.drawText("TYPE A-Z, 0-9: DIRECT INPUT", {
+      x: centerX,
+      y: centerY + 120,
+      color: '#AAAAAA',
+      fontSize: 20,
+      align: 'center',
+      fontFamily: 'Press Start 2P, monospace',
+      pixelated: true
+    });
+    
     this.renderer.drawText("UP/DOWN: CHANGE LETTER", {
       x: centerX,
-      y: centerY + 130,
+      y: centerY + 145,
       color: '#AAAAAA',
-      fontSize: 24,
+      fontSize: 20,
+      align: 'center',
+      fontFamily: 'Press Start 2P, monospace',
+      pixelated: true
+    });
+    
+    this.renderer.drawText("BACKSPACE: DELETE LETTER", {
+      x: centerX,
+      y: centerY + 170,
+      color: '#AAAAAA',
+      fontSize: 20,
       align: 'center',
       fontFamily: 'Press Start 2P, monospace',
       pixelated: true
@@ -1918,7 +1986,7 @@ export class Game {
     const confirmAlpha = (Math.sin(this.stateTime * 5) + 1) / 2;
     this.renderer.drawText("PRESS SPACE TO CONFIRM", {
       x: centerX,
-      y: centerY + 170,
+      y: centerY + 200,
       color: '#FFFFFF',
       fontSize: 24,
       align: 'center',
