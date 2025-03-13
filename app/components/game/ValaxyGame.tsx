@@ -316,7 +316,7 @@ export default function ValaxyGame() {
             </button>
             
             {/* Sound effects toggle button */}
-            {!isSoundMuted && (
+            {/* {!isSoundMuted && (
               <button
                 onClick={toggleSoundEffects}
                 className="arcade-button py-1 px-3 text-white text-xs flex items-center mb-2"
@@ -338,10 +338,10 @@ export default function ValaxyGame() {
                   </>
                 )}
               </button>
-            )}
+            )} */}
             
             {/* Volume slider - only show when sound is on */}
-            {!isSoundMuted && (
+            {/* {!isSoundMuted && (
               <div className="bg-black bg-opacity-50 p-1 rounded border border-red-900 flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-white" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z" clipRule="evenodd" />
@@ -361,7 +361,7 @@ export default function ValaxyGame() {
                   <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071a1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </div>
-            )}
+            )} */}
           </div>
         )}
       </div>

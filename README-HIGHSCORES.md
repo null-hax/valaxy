@@ -12,17 +12,19 @@ Error saving high scores: Error: EROFS: read-only file system, open '/var/task/d
 
 The solution implements a serverless-friendly approach to storing high scores:
 
-1. **In-memory cache**: The API now uses an in-memory cache to store high scores during the server's lifetime.
-2. **Local storage**: The client-side game continues to use local storage as a reliable backup.
-3. **Top 5 scores**: The implementation now only keeps the top 5 scores instead of 10, as requested.
-4. **Improved error handling**: Better fallback mechanisms when the API is unavailable.
+1. **Supabase Database**: The API uses Supabase to store high scores persistently.
+2. **In-memory cache**: The API also uses an in-memory cache as a fallback.
+3. **Local storage**: The client-side game continues to use local storage as a reliable backup.
+4. **Top 5 scores**: The implementation displays the top 5 scores in the UI, while storing up to 100 in the database.
+5. **Improved error handling**: Better fallback mechanisms when the API is unavailable.
 
 ## How It Works
 
 ### Server-side (API)
 
-- The `/api/highscores` API endpoint now uses an in-memory cache instead of writing to the file system.
-- In a production environment, you should replace this with a proper database solution (see "Future Improvements" below).
+- The `/api/highscores` API endpoint uses Supabase as the primary storage solution.
+- It also maintains an in-memory cache as a fallback.
+- The API includes robust error handling and duplicate prevention.
 
 ### Client-side (Game)
 
@@ -30,99 +32,38 @@ The solution implements a serverless-friendly approach to storing high scores:
 - If the API fails, it falls back to using local storage.
 - When loading scores, it tries the API first, then local storage, then defaults.
 
-## Future Improvements
+## Implementation Details
 
-For a more robust solution in production, consider implementing one of these options:
+### Supabase Integration
 
-### 1. Vercel KV (Recommended)
+The high scores are stored in a Supabase table with the following structure:
 
-Vercel KV is a Redis-compatible key-value store designed for Vercel serverless functions:
+- `id`: UUID (primary key)
+- `name`: Text (player's 3-letter name)
+- `score`: Integer (player's score)
+- `date`: Timestamp (when the score was achieved)
+- `wave`: Integer (the wave number reached)
+- `created_at`: Timestamp (when the record was created)
 
-```typescript
-// Example implementation with Vercel KV
-import { kv } from '@vercel/kv';
+The API communicates with Supabase in two ways:
 
-const getHighScores = async (): Promise<HighScore[]> => {
-  try {
-    const scores = await kv.get('valaxy:highscores');
-    return scores || defaultScores;
-  } catch (error) {
-    console.error('Error reading high scores from KV:', error);
-    return defaultScores;
-  }
-};
+1. **Stored Procedures**: For reliable database operations that bypass Row Level Security.
+2. **Direct Table Access**: As a fallback if stored procedures are not available.
 
-const saveHighScores = async (scores: HighScore[]): Promise<boolean> => {
-  try {
-    const topScores = scores
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_HIGH_SCORES);
-    
-    await kv.set('valaxy:highscores', topScores);
-    return true;
-  } catch (error) {
-    console.error('Error saving high scores to KV:', error);
-    return false;
-  }
-};
-```
+### Duplicate Prevention
 
-### 2. MongoDB Atlas
+The system includes robust duplicate prevention mechanisms:
 
-For a more traditional database approach:
-
-```typescript
-// Example with MongoDB
-import { MongoClient } from 'mongodb';
-
-const uri = process.env.MONGODB_URI;
-const client = new MongoClient(uri);
-
-const getHighScores = async (): Promise<HighScore[]> => {
-  try {
-    await client.connect();
-    const database = client.db('valaxy');
-    const collection = database.collection('highscores');
-    
-    const scores = await collection.find().sort({ score: -1 }).limit(5).toArray();
-    return scores;
-  } catch (error) {
-    console.error('Error reading high scores from MongoDB:', error);
-    return defaultScores;
-  } finally {
-    await client.close();
-  }
-};
-```
-
-### 3. Environment Variables (Simple Solution)
-
-For a very simple solution, you could use Vercel environment variables to store the high scores:
-
-```typescript
-// In your Vercel project settings, add an environment variable:
-// VALAXY_HIGH_SCORES = '[{"name":"ACE","score":30000,"date":"...","wave":5},...]'
-
-const getHighScores = async (): Promise<HighScore[]> => {
-  try {
-    const envScores = process.env.VALAXY_HIGH_SCORES;
-    if (envScores) {
-      return JSON.parse(envScores);
-    }
-    return defaultScores;
-  } catch (error) {
-    console.error('Error reading high scores:', error);
-    return defaultScores;
-  }
-};
-```
+1. Server-side duplicate detection based on name, score, and wave.
+2. Client-side duplicate filtering before sending scores to the API.
+3. Improved sorting to ensure the highest scores are always kept.
 
 ## Deployment Notes
 
 When deploying to Vercel:
 
-1. Make sure to set up any required environment variables.
-2. If using Vercel KV or MongoDB, install the necessary dependencies.
-3. Update the API implementation to use your chosen storage solution.
+1. Make sure the Supabase project URL and API key are correctly configured.
+2. Ensure the Supabase database has the correct table structure and stored procedures.
+3. Set up appropriate Row Level Security policies if using direct table access.
 
-The current implementation will work on Vercel without any additional configuration, but the high scores will reset whenever the serverless function is redeployed or scaled.
+For more details on the Supabase implementation, see the `README-SUPABASE.md` file.

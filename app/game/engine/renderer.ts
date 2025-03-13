@@ -301,7 +301,7 @@ export class Renderer {
     const height = this.canvas.height;
     
     // Add scan lines (only every 6th line for better performance)
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     for (let y = 0; y < height; y += 6) {
       this.ctx.fillRect(0, y, width, 1);
     }

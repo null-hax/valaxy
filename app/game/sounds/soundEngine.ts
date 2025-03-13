@@ -54,15 +54,16 @@ export class SoundEngine {
     
     try {
       console.log("Initializing sound engine...");
-      console.log("Audio context state before start:", Tone.context.state);
+      const context = Tone.getContext();
+      console.log("Audio context state before start:", context.state);
       
       // Start the Tone.js audio context with user gesture
       await Tone.start();
-      console.log("Tone.start() completed, context state:", Tone.context.state);
+      console.log("Tone.start() completed, context state:", context.state);
       
       // Force resume audio context
-      await Tone.context.resume();
-      console.log("Tone.context.resume() completed, context state:", Tone.context.state);
+      await context.resume();
+      console.log("Tone.context.resume() completed, context state:", context.state);
       
       // Create various sound effects
       this.createSoundEffects();
@@ -80,7 +81,7 @@ export class SoundEngine {
       }
       
       this.isInitialized = true;
-      console.log("Sound engine initialized successfully, context state:", Tone.context.state);
+      console.log("Sound engine initialized successfully, context state:", context.state);
       
       // Play a sound to confirm initialization
       setTimeout(() => {
@@ -637,7 +638,8 @@ export class SoundEngine {
     }
 
     try {
-      console.log(`Queueing sound: ${SoundEffect[sound]}, context state: ${Tone.context.state}`);
+      const context = Tone.getContext();
+      console.log(`Queueing sound: ${SoundEffect[sound]}, context state: ${context.state}`);
       // Instead of playing immediately, add to queue
       this.soundQueue.push({ sound });
       
@@ -657,11 +659,12 @@ export class SoundEngine {
     
     try {
       // Ensure audio context is running before processing queue
-      if (Tone.context.state !== 'running') {
+      const context = Tone.getContext();
+      if (context.state !== 'running') {
         try {
           await Tone.start();
-          await Tone.context.resume();
-          console.log("Audio context resumed in processQueue, state:", Tone.context.state);
+          await context.resume();
+          console.log("Audio context resumed in processQueue, state:", context.state);
         } catch (error) {
           console.error("Failed to resume audio context in processQueue:", error);
         }
@@ -672,8 +675,9 @@ export class SoundEngine {
         const { sound } = this.soundQueue.shift()!;
         
         // Make sure audio context is running
-        if (Tone.context.state !== 'running') {
-          await Tone.context.resume();
+        const context = Tone.getContext();
+        if (context.state !== 'running') {
+          await context.resume();
         }
         
         // Play the sound with current time
@@ -698,11 +702,12 @@ export class SoundEngine {
 
     try {
       // Make sure audio context is running
-      if (Tone.context.state !== 'running') {
+      const context = Tone.getContext();
+      if (context.state !== 'running') {
         try {
           await Tone.start();
-          await Tone.context.resume();
-          console.log("Audio context resumed in playSoundImmediately, state:", Tone.context.state);
+          await context.resume();
+          console.log("Audio context resumed in playSoundImmediately, state:", context.state);
         } catch (error) {
           console.error("Failed to resume audio context in playSoundImmediately:", error);
           return; // Don't try to play if we can't resume
@@ -793,8 +798,9 @@ export class SoundEngine {
 
   /**
    * Start playing the background music
+   * @param forceRestart If true, will restart the music even if it's already playing
    */
-  public async startMusic(): Promise<void> {
+  public async startMusic(forceRestart: boolean = false): Promise<void> {
     console.log("Starting background music...");
     console.log("Initialized:", this.isInitialized, "Muted:", this._isMuted, "Already playing:", this.musicIsPlaying);
     
@@ -808,36 +814,49 @@ export class SoundEngine {
       return;
     }
     
+    // If we're forcing a restart, use the dedicated restartMusic method
+    if (forceRestart) {
+      console.log("Forcing music restart using restartMusic method");
+      await this.restartMusic();
+      return;
+    }
+    
+    // If music is already playing and we're not forcing a restart, return early
     if (this.musicIsPlaying) {
       console.log("Music is already playing");
       return;
     }
 
     // Ensure audio context is running
-    if (Tone.context.state !== 'running') {
+    const context = Tone.getContext();
+    if (context.state !== 'running') {
       try {
         console.log("Audio context not running, attempting to start...");
         await Tone.start();
-        await Tone.context.resume();
-        console.log("Audio context resumed in startMusic, state:", Tone.context.state);
+        await context.resume();
+        console.log("Audio context resumed in startMusic, state:", context.state);
       } catch (error) {
         console.error("Failed to resume audio context in startMusic:", error);
         return; // Don't try to play if we can't resume
       }
     }
 
+    // Add a small delay after resuming context
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     if (this.musicPart) {
       // Set a slower tempo for the spooky church organ music
-      Tone.Transport.bpm.value = 70; // Slower tempo for more dramatic effect
-      console.log("Setting tempo to", Tone.Transport.bpm.value, "BPM");
+      const transport = Tone.getTransport();
+      transport.bpm.value = 70; // Slower tempo for more dramatic effect
+      console.log("Setting tempo to", transport.bpm.value, "BPM");
       
-      Tone.Transport.start();
+      transport.start();
       
       // Start the main organ part
       this.musicPart.start(0);
       
       // Start the upper register part if it exists
-      const upperPart = (this.musicPart as any).upperPart;
+      const upperPart = (this.musicPart as any).upperPart as Tone.Part;
       if (upperPart) {
         upperPart.start(0);
         console.log("Upper register countermelody started");
@@ -854,22 +873,104 @@ export class SoundEngine {
    * Stop the background music
    */
   public stopMusic(): void {
-    if (!this.isInitialized || !this.musicIsPlaying) return;
+    console.log("Stopping background music...");
+    
+    if (!this.isInitialized) {
+      console.log("Sound engine not initialized, nothing to stop");
+      return;
+    }
+    
+    if (!this.musicIsPlaying) {
+      console.log("Music is not currently playing, nothing to stop");
+      return;
+    }
 
-    if (this.musicPart) {
-      // Stop the main organ part
-      this.musicPart.stop();
-      
-      // Stop the upper register part if it exists
-      const upperPart = (this.musicPart as any).upperPart;
-      if (upperPart) {
-        upperPart.stop();
-        console.log("Upper register countermelody stopped");
+    try {
+      if (this.musicPart) {
+        // Stop the main organ part
+        this.musicPart.stop();
+        console.log("Main organ part stopped");
+        
+        // Stop the upper register part if it exists
+        const upperPart = (this.musicPart as any).upperPart as Tone.Part;
+        if (upperPart) {
+          upperPart.stop();
+          console.log("Upper register countermelody stopped");
+        }
+      } else {
+        console.log("No music part to stop");
       }
       
-      Tone.Transport.stop();
+      // Always stop the transport
+      const transport = Tone.getTransport();
+      transport.stop();
+      console.log("Tone.js transport stopped");
+      
       this.musicIsPlaying = false;
-      console.log("Background music stopped");
+      console.log("Background music stopped successfully");
+    } catch (error) {
+      console.error("Error stopping background music:", error);
+      // Force the flag to false even if there was an error
+      this.musicIsPlaying = false;
+    }
+  }
+
+  /**
+   * Restart the background music from the beginning
+   * Simplified version that's more reliable during state transitions
+   */
+  public async restartMusic(): Promise<void> {
+    console.log("Restarting background music with simplified approach...");
+    
+    try {
+      // First, ensure we're in a clean state by stopping any existing music
+      this.stopMusic();
+      
+      // Reset the flag
+      this.musicIsPlaying = false;
+      
+      // Reset the Tone.js transport
+      const transport = Tone.getTransport();
+      transport.stop();
+      transport.cancel(0); // Cancel all scheduled events
+      console.log("Tone.js transport reset");
+      
+      // Add a small delay for clean separation
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Simply start the music again using the existing startMusic method
+      // with forceRestart=false since we've already handled the stopping
+      await this.startMusic(false);
+      
+      console.log("Background music restarted successfully");
+    } catch (error) {
+      console.error("Error in simplified restartMusic:", error);
+      
+      // If there was an error, try a more direct approach
+      try {
+        // Ensure audio context is running
+        const context = Tone.getContext();
+        await Tone.start();
+        await context.resume();
+        
+        // Start transport and music parts directly
+        if (this.musicPart) {
+          const transport = Tone.getTransport();
+          transport.start();
+          this.musicPart.start(0);
+          
+          // Start the upper register part if it exists
+          const upperPart = (this.musicPart as any).upperPart as Tone.Part;
+          if (upperPart) {
+            upperPart.start(0);
+          }
+          
+          this.musicIsPlaying = true;
+          console.log("Music restarted with fallback approach");
+        }
+      } catch (fallbackError) {
+        console.error("Failed to restart music with fallback approach:", fallbackError);
+      }
     }
   }
 
@@ -895,9 +996,10 @@ export class SoundEngine {
   public async toggleMute(): Promise<boolean> {
     // Ensure audio context is resumed
     try {
+      const context = Tone.getContext();
       await Tone.start();
-      await Tone.context.resume();
-      console.log("Audio context resumed in toggleMute, state:", Tone.context.state);
+      await context.resume();
+      console.log("Audio context resumed in toggleMute, state:", context.state);
     } catch (error) {
       console.error("Failed to resume audio context in toggleMute:", error);
     }
@@ -926,6 +1028,14 @@ export class SoundEngine {
    */
   public getMuteState(): boolean {
     return this._isMuted;
+  }
+  
+  /**
+   * Check if music is currently playing
+   * @returns True if music is playing, false otherwise
+   */
+  public getMusicIsPlaying(): boolean {
+    return this.musicIsPlaying;
   }
 
   /**

@@ -488,12 +488,15 @@ export class Game {
         // Move back one position
         this.nameEntryPosition--;
         
-        // Remove the character at the current position
-        if (this.nameEntryPosition < this.playerName.length) {
-          this.playerName = this.playerName.substring(0, this.nameEntryPosition) +
-                           (this.nameEntryPosition < this.playerName.length - 1 ?
-                            this.playerName.substring(this.nameEntryPosition + 1) : '');
+        // Remove the character at the current position by rebuilding the string
+        // This is a more reliable approach that avoids potential string manipulation issues
+        let newName = '';
+        for (let i = 0; i < this.playerName.length; i++) {
+          if (i !== this.nameEntryPosition) {
+            newName += this.playerName[i];
+          }
         }
+        this.playerName = newName;
         
         console.log('Backspace pressed, updated name to:', this.playerName);
         this.soundEngine.playSound(SoundEffect.MENU_NAVIGATE);
@@ -542,22 +545,45 @@ export class Game {
     }
   }
   
+  // Flag to track if we're transitioning from high score to title
+  private transitioningFromHighScore: boolean = false;
+
   /**
    * Confirm high score and transition back to title screen
    */
   private confirmHighScore(): void {
     console.log('Name entry complete, submitting high score');
+    
+    // Immediately remove keyboard handler to prevent any further input
+    window.removeEventListener('keydown', this.boundKeyDownHandler);
+    console.log('Removed high score keyboard handler');
+    
+    // Add the high score first
+    this.addHighScore();
+    
+    // Set the transitioning flag to true
+    this.transitioningFromHighScore = true;
+    
+    // Simplify the transition process to avoid race conditions
+    // First stop the music
+    this.soundEngine.stopMusic();
+    
+    // Use a single timeout for the transition
     setTimeout(() => {
-      this.addHighScore();
-      
-      // Remove keyboard handler
-      window.removeEventListener('keydown', this.boundKeyDownHandler);
-      console.log('Removed high score keyboard handler');
-      
-      // Return to title screen
+      // Change state first
       this.state = GameState.TITLE;
       this.stateTime = 0;
-    }, 500);
+      
+      // Then restart music with a simple approach
+      this.soundEngine.startMusic(true).catch(err => {
+        console.error("Failed to restart background music:", err);
+      });
+      
+      // Reset the transitioning flag after a short delay
+      setTimeout(() => {
+        this.transitioningFromHighScore = false;
+      }, 100);
+    }, 300);
   }
   
   // Player name for high score
@@ -685,25 +711,50 @@ export class Game {
       // Name entry complete, add high score after a short delay
       if (this.stateTime >= 1) {
         console.log('Adding high score and returning to title screen');
-        this.addHighScore();
         
-        // Reload high scores before returning to title screen
-        this.loadHighScores().then(() => {
-          console.log('High scores reloaded for title screen:', this.highScores);
-        }).catch(err => {
-          console.error('Failed to reload high scores:', err);
-        });
-        
-        // Remove keyboard handler
+        // Immediately remove keyboard handler to prevent any further input
         window.removeEventListener('keydown', this.boundKeyDownHandler);
         console.log('Removed high score keyboard handler from updateHighScore');
         
-        this.state = GameState.TITLE;
-        this.stateTime = 0;
+        // Add the high score first
+        this.addHighScore();
+        
+        // Reset player name and entry state
         this.playerName = '';
         this.nameEntryPosition = 0;
         this.nameEntryDebounce = 0;
         this.confirmDebounce = 0;
+        
+        // Set the transitioning flag to true
+        this.transitioningFromHighScore = true;
+        
+        // Simplify the transition process to avoid race conditions
+        // First stop the music
+        this.soundEngine.stopMusic();
+        
+        // Use a single timeout for the transition
+        setTimeout(() => {
+          // Change state first
+          this.state = GameState.TITLE;
+          this.stateTime = 0;
+          
+          // Then restart music with a simple approach
+          this.soundEngine.startMusic(true).catch(err => {
+            console.error("Failed to restart background music:", err);
+          });
+          
+          // Reload high scores after transition
+          this.loadHighScores().then(() => {
+            console.log('High scores reloaded for title screen:', this.highScores);
+          }).catch(err => {
+            console.error('Failed to reload high scores:', err);
+          });
+          
+          // Reset the transitioning flag after a short delay
+          setTimeout(() => {
+            this.transitioningFromHighScore = false;
+          }, 100);
+        }, 300);
       }
     }
   }
@@ -719,30 +770,36 @@ export class Game {
     // Draw stars
     this.drawStars();
     
-    // Render based on game state
-    switch (this.state) {
-      case GameState.BOOT:
-        this.renderBootScreen();
-        break;
-        
-      case GameState.TITLE:
-        this.renderTitleScreen();
-        break;
-        
-      case GameState.GAME_START:
-      case GameState.PLAYING:
-      case GameState.LEVEL_COMPLETE:
-        this.renderGame();
-        break;
-        
-      case GameState.GAME_OVER:
-        this.renderGame();
-        this.renderGameOver();
-        break;
-        
-      case GameState.HIGH_SCORE:
-        this.renderHighScore();
-        break;
+    // If we're transitioning from HIGH_SCORE to TITLE, render the title screen
+    // This prevents the flash of the game screen during transition
+    if (this.transitioningFromHighScore && this.state === GameState.TITLE) {
+      this.renderTitleScreen();
+    } else {
+      // Normal rendering based on game state
+      switch (this.state) {
+        case GameState.BOOT:
+          this.renderBootScreen();
+          break;
+          
+        case GameState.TITLE:
+          this.renderTitleScreen();
+          break;
+          
+        case GameState.GAME_START:
+        case GameState.PLAYING:
+        case GameState.LEVEL_COMPLETE:
+          this.renderGame();
+          break;
+          
+        case GameState.GAME_OVER:
+          this.renderGame();
+          this.renderGameOver();
+          break;
+          
+        case GameState.HIGH_SCORE:
+          this.renderHighScore();
+          break;
+      }
     }
     
     // Apply CRT effect
@@ -2159,35 +2216,49 @@ export class Game {
    * Add current score to high scores
    */
   private addHighScore(): void {
-    const newScore: HighScore = {
-      name: this.playerName || 'AAA', // Default to AAA if no name entered
-      score: this.player.getScore(),
-      date: new Date().toISOString(),
-      wave: this.level
-    };
-    
-    // Check for duplicates before adding
-    const isDuplicate = this.highScores.some(
-      score => score.name === newScore.name && score.score === newScore.score && score.wave === newScore.wave
-    );
-    
-    if (!isDuplicate) {
-      this.highScores.push(newScore);
-      this.highScores.sort((a, b) => b.score - a.score);
+    try {
+      // Create the new score object
+      const newScore: HighScore = {
+        name: this.playerName || 'AAA', // Default to AAA if no name entered
+        score: this.player.getScore(),
+        date: new Date().toISOString(),
+        wave: this.level
+      };
       
-      // Limit to top 5
-      if (this.highScores.length > 5) {
-        this.highScores = this.highScores.slice(0, 5);
+      console.log('Adding new high score:', newScore);
+      
+      // Check if this exact score already exists
+      const isDuplicate = this.highScores.some(score =>
+        score.name === newScore.name &&
+        score.score === newScore.score
+      );
+      
+      if (!isDuplicate) {
+        // Add to current high scores
+        this.highScores.push(newScore);
+        
+        // Sort by score (highest first)
+        this.highScores.sort((a, b) => b.score - a.score);
+        
+        // Remove duplicates (same name and score)
+        this.highScores = this.removeDuplicateScores(this.highScores);
+        
+        // Save to API
+        this.saveHighScores().catch(err => {
+          console.error('Failed to save high score to API:', err);
+        });
+      } else {
+        console.log('Skipping duplicate score:', newScore);
+        
+        // Still ensure we have the correct format
+        this.highScores = this.removeDuplicateScores(this.highScores);
       }
-      
-      // Save to API and local storage
-      this.saveHighScores().catch(err => {
-        console.error('Failed to save high score to API:', err);
-        // Fallback to local storage only if API fails
-        this.saveHighScoresToLocalStorage();
-      });
-    } else {
-      console.log('Duplicate score detected, not adding to high scores');
+    } catch (error) {
+      console.error('Error adding high score:', error);
+      // Ensure we have at least default high scores
+      if (this.highScores.length === 0) {
+        this.setDefaultHighScores();
+      }
     }
   }
   
@@ -2196,51 +2267,30 @@ export class Game {
    */
   private async loadHighScores(): Promise<void> {
     try {
-      // First try to load from API
+      console.log('Loading high scores from API...');
       const response = await fetch('/api/highscores');
       
       if (response.ok) {
         const apiScores = await response.json();
-        // Remove any duplicates from API response
-        this.highScores = this.removeDuplicateScores(apiScores);
-        // Also update local storage with the latest scores
-        this.saveHighScoresToLocalStorage();
-      } else {
-        // Fallback to local storage if API fails
-        const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
-        if (savedScores) {
-          try {
-            const parsedScores = JSON.parse(savedScores);
-            // Remove any duplicates from local storage
-            this.highScores = this.removeDuplicateScores(parsedScores);
-          } catch (e) {
-            console.error('Error parsing local storage high scores:', e);
-            this.setDefaultHighScores();
-          }
+        console.log('Successfully loaded high scores from API:', apiScores);
+        
+        // Ensure we have valid scores
+        if (Array.isArray(apiScores) && apiScores.length > 0) {
+          this.highScores = apiScores;
+          
+          // Make sure we have exactly 5 scores
+          this.highScores = this.removeDuplicateScores(this.highScores);
+          console.log('Processed high scores:', this.highScores);
         } else {
-          // Initial default high scores
+          console.warn('API returned empty or invalid scores, using defaults');
           this.setDefaultHighScores();
-          // Save to local storage as fallback
-          this.saveHighScoresToLocalStorage();
         }
+      } else {
+        console.error('Failed to load high scores from API:', response.status, response.statusText);
+        this.setDefaultHighScores();
       }
     } catch (error) {
       console.error('Error loading high scores:', error);
-      
-      // Fallback to local storage
-      const savedScores = localStorage.getItem(HIGH_SCORES_KEY);
-      if (savedScores) {
-        try {
-          const parsedScores = JSON.parse(savedScores);
-          // Remove any duplicates from local storage
-          this.highScores = this.removeDuplicateScores(parsedScores);
-          return;
-        } catch (e) {
-          console.error('Error parsing local storage high scores:', e);
-        }
-      }
-      
-      // Fallback to defaults if everything fails
       this.setDefaultHighScores();
     }
   }
@@ -2250,92 +2300,117 @@ export class Game {
    */
   private setDefaultHighScores(): void {
     this.highScores = [
-      { name: 'ACE', score: 30000, date: new Date().toISOString(), wave: 5 },
-      { name: 'BOB', score: 20000, date: new Date().toISOString(), wave: 3 },
-      { name: 'CAT', score: 10000, date: new Date().toISOString(), wave: 2 }
+      { name: 'HAX', score: 94900, date: new Date().toISOString(), wave: 14 },
+      { name: 'AAA', score: 63950, date: new Date().toISOString(), wave: 10 },
+      { name: 'HAX', score: 63950, date: new Date().toISOString(), wave: 10 },
+      { name: '---', score: 0, date: new Date().toISOString(), wave: 0 },
+      { name: '---', score: 0, date: new Date().toISOString(), wave: 0 }
     ];
   }
   
   /**
-   * Save high scores to API and local storage as backup
+   * Save high scores to API
    */
   private async saveHighScores(): Promise<void> {
-    // Remove any duplicates
-    const uniqueScores = this.removeDuplicateScores(this.highScores);
-    
-    // Keep only the top 5 scores
-    uniqueScores.sort((a, b) => b.score - a.score);
-    this.highScores = uniqueScores.slice(0, 5);
-    
     try {
-      // Save to local storage first as a reliable backup
-      this.saveHighScoresToLocalStorage();
+      // First remove any placeholder scores (name "---" or score 0)
+      const validScores = this.highScores.filter(score =>
+        score.name !== '---' && score.score > 0
+      );
       
-      // Then try to save to the API
+      // Only send the most recent score to prevent duplicates
+      const newScore = {
+        name: this.playerName || 'AAA',
+        score: this.player.getScore(),
+        date: new Date().toISOString(),
+        wave: this.level
+      };
+      
+      console.log('Saving new high score to API:', newScore);
+      
       const response = await fetch('/api/highscores', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(this.highScores),
+        body: JSON.stringify(newScore)
       });
       
       if (response.ok) {
-        // Update local high scores with the sorted list from the server
+        // Update high scores with the sorted list from the server
         const serverScores = await response.json();
         
-        // Make sure we don't introduce duplicates from the server response
-        this.highScores = this.removeDuplicateScores(serverScores);
-        console.log('High scores saved successfully:', this.highScores);
-        
-        // Update local storage with the latest from the server
-        this.saveHighScoresToLocalStorage();
+        if (Array.isArray(serverScores) && serverScores.length > 0) {
+          this.highScores = serverScores;
+          console.log('High scores saved successfully:', this.highScores);
+        } else {
+          console.warn('API returned empty scores after save, keeping current scores');
+        }
       } else {
         console.error('Failed to save high scores to API:', await response.text());
       }
     } catch (error) {
       console.error('Error saving high scores to API:', error);
-      // Local storage was already updated above, so no need to call again
     }
   }
   
   /**
    * Remove duplicate scores from an array of high scores
+   * Uses a more comprehensive approach to identify duplicates
    */
   private removeDuplicateScores(scores: HighScore[]): HighScore[] {
     const uniqueScores: HighScore[] = [];
     const seen = new Set<string>();
     
-    for (const score of scores) {
-      // Create a unique key for this score
-      const key = `${score.name}-${score.score}-${score.wave}`;
+    // First sort by score (highest first) and date (newest first)
+    // This ensures we keep the highest score if there are duplicates
+    const sortedScores = [...scores].sort((a, b) => {
+      // First compare by score (highest first)
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      // If scores are equal, compare by date (newest first)
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+    
+    for (const score of sortedScores) {
+      // Skip placeholder scores (with name "---" or score 0)
+      if (score.name === '---' || score.score === 0) {
+        continue;
+      }
+      
+      // Create a unique key for this score based on name and score
+      // This considers the same name and score as a duplicate, keeping only the highest wave
+      const key = `${score.name}-${score.score}`;
       
       if (!seen.has(key)) {
         seen.add(key);
         uniqueScores.push(score);
+      } else {
+        // If we've seen this name-score combination before, check if this one has a higher wave
+        const existingIndex = uniqueScores.findIndex(s =>
+          s.name === score.name && s.score === score.score
+        );
+        
+        if (existingIndex >= 0 && score.wave > uniqueScores[existingIndex].wave) {
+          // Replace with the higher wave version
+          uniqueScores[existingIndex] = score;
+        }
       }
     }
     
-    return uniqueScores;
+    // Re-sort by score before returning
+    const result = uniqueScores.sort((a, b) => b.score - a.score);
+    
+    // Ensure we have exactly 5 entries
+    while (result.length < 5) {
+      result.push({ name: '---', score: 0, date: new Date().toISOString(), wave: 0 });
+    }
+    
+    return result.slice(0, 5);
   }
   
-  /**
-   * Save high scores to local storage (fallback method)
-   */
-  private saveHighScoresToLocalStorage(): void {
-    try {
-      // Ensure we're saving a deduplicated list
-      const uniqueScores = this.removeDuplicateScores(this.highScores);
-      
-      // Sort by score and limit to top 5
-      uniqueScores.sort((a, b) => b.score - a.score);
-      const topScores = uniqueScores.slice(0, 5);
-      
-      localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(topScores));
-    } catch (error) {
-      console.error('Error saving high scores to local storage:', error);
-    }
-  }
+  // Local storage methods removed - using Supabase directly
   
   /**
    * Update renderer dimensions to match the current display
