@@ -3,7 +3,12 @@
  * Handles audio playback using Tone.js for authentic arcade sounds
  */
 
-import * as Tone from 'tone';
+// Use dynamic import for Tone.js to avoid server-side rendering issues
+// This ensures Tone.js is only loaded in the browser
+let Tone: any = null;
+
+// Flag to track if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
 // Sound effect types for our vampire-themed arcade game
 export enum SoundEffect {
@@ -26,23 +31,23 @@ export enum SoundEffect {
 export class SoundEngine {
   private _isMuted: boolean = false;
   private _volumeDb: number = -3; // Default volume in decibels
-  private masterVolume: Tone.Volume;
+  private masterVolume: any;
   private isInitialized: boolean = false;
-  private sounds: Map<SoundEffect, Tone.ToneAudioNode> = new Map();
-  private musicSynth?: Tone.PolySynth;
-  private musicPart?: Tone.Part;
+  private sounds: Map<SoundEffect, any> = new Map();
+  private musicSynth?: any;
+  private musicPart?: any;
   private musicIsPlaying: boolean = false;
 
   constructor() {
-    // Create a master volume node
-    this.masterVolume = new Tone.Volume(-3);
+    // Only initialize browser-specific components when in browser
+    if (isBrowser) {
+      console.log("SoundEngine constructor called in browser environment");
+    } else {
+      console.log("SoundEngine constructor called in server environment - deferring initialization");
+    }
     
-    // Connect it to the destination (output)
-    // Fix: Use getDestination() instead of deprecated Destination
-    // Fix: Connect masterVolume to destination, not the other way around
-    this.masterVolume.connect(Tone.getDestination());
-    
-    console.log("SoundEngine initialized with volume:", this._volumeDb, "dB");
+    // We'll initialize Tone.js components in the init() method instead
+    console.log("SoundEngine created with volume:", this._volumeDb, "dB");
   }
 
   /**
@@ -52,8 +57,28 @@ export class SoundEngine {
   public async init(): Promise<void> {
     if (this.isInitialized) return;
     
+    // Only initialize in browser environment
+    if (!isBrowser) {
+      console.log("Not initializing sound engine in server environment");
+      return;
+    }
+    
     try {
       console.log("Initializing sound engine...");
+      
+      // Dynamically import Tone.js
+      if (!Tone) {
+        console.log("Dynamically importing Tone.js...");
+        Tone = await import('tone');
+        console.log("Tone.js imported successfully");
+      }
+      
+      // Create a master volume node
+      this.masterVolume = new Tone.Volume(-3);
+      
+      // Connect it to the destination (output)
+      this.masterVolume.connect(Tone.getDestination());
+      
       const context = Tone.getContext();
       console.log("Audio context state before start:", context.state);
       
@@ -99,6 +124,11 @@ export class SoundEngine {
    * Create all the sound effects using Tone.js synthesizers and effects
    */
   private createSoundEffects(): void {
+    if (!isBrowser || !Tone) {
+      console.log("Cannot create sound effects - not in browser or Tone.js not loaded");
+      return;
+    }
+    
     // Player Shoot - A quick high-pitched blip
     const playerShoot = new Tone.NoiseSynth({
       noise: { type: 'white' },
@@ -293,6 +323,11 @@ export class SoundEngine {
    * Create a spooky church organ background music with multiple instruments
    */
   private createBackgroundMusic(): void {
+    if (!isBrowser || !Tone) {
+      console.log("Cannot create background music - not in browser or Tone.js not loaded");
+      return;
+    }
+    
     console.log("Creating enhanced spooky church organ background music");
     
     // Create a church organ-like synth for the bass and mid-range
@@ -585,14 +620,14 @@ export class SoundEngine {
     console.log("Enhanced spooky melody created with", spookyMelody.length, "notes/chords and", upperMelody.length, "upper register notes");
 
     // Create a sequence from the main organ notes
-    this.musicPart = new Tone.Part((time, value) => {
+    this.musicPart = new Tone.Part((time: number, value: {note: any, duration: string}) => {
       if (this.musicSynth) {
         this.musicSynth.triggerAttackRelease(value.note, value.duration, time);
       }
     }, spookyMelody);
 
     // Create a sequence for the upper register countermelody
-    const upperPart = new Tone.Part((time, value) => {
+    const upperPart = new Tone.Part((time: number, value: {note: any, duration: string}) => {
       upperSynth.triggerAttackRelease(value.note, value.duration, time);
     }, upperMelody);
 
@@ -622,6 +657,11 @@ export class SoundEngine {
   private _soundEffectsDisabled: boolean = true;
 
   public playSound(sound: SoundEffect): void {
+    if (!isBrowser || !Tone) {
+      console.warn(`Cannot play sound ${SoundEffect[sound]} - not in browser or Tone.js not loaded`);
+      return;
+    }
+    
     if (!this.isInitialized) {
       console.warn(`Cannot play sound ${SoundEffect[sound]} - sound engine not initialized`);
       return;
@@ -653,6 +693,11 @@ export class SoundEngine {
   }
   
   private async processQueue(): Promise<void> {
+    if (!isBrowser || !Tone) {
+      console.warn("Cannot process sound queue - not in browser or Tone.js not loaded");
+      return;
+    }
+    
     if (this.isProcessingQueue || this.soundQueue.length === 0) return;
     
     this.isProcessingQueue = true;
@@ -694,6 +739,11 @@ export class SoundEngine {
   }
   
   private async playSoundImmediately(sound: SoundEffect): Promise<void> {
+    if (!isBrowser || !Tone) {
+      console.warn(`Cannot play sound ${SoundEffect[sound]} - not in browser or Tone.js not loaded`);
+      return;
+    }
+    
     const synth = this.sounds.get(sound);
     if (!synth) {
       console.error(`Sound effect ${SoundEffect[sound]} not found in sounds map`);
@@ -721,73 +771,73 @@ export class SoundEngine {
       // Play different sounds based on the effect type
       switch (sound) {
         case SoundEffect.PLAYER_SHOOT:
-          (synth as Tone.NoiseSynth).triggerAttackRelease('16n', now);
+          (synth as any).triggerAttackRelease('16n', now);
           console.log("Player shoot sound triggered");
           break;
 
         case SoundEffect.ENEMY_SHOOT:
-          (synth as Tone.NoiseSynth).triggerAttackRelease('16n', now);
+          (synth as any).triggerAttackRelease('16n', now);
           console.log("Enemy shoot sound triggered");
           break;
 
         case SoundEffect.PLAYER_EXPLOSION:
-          (synth as Tone.Synth).triggerAttackRelease('C2', '8n', now);
+          (synth as any).triggerAttackRelease('C2', '8n', now);
           console.log("Player explosion sound triggered");
           break;
 
         case SoundEffect.ENEMY_EXPLOSION:
-          (synth as Tone.NoiseSynth).triggerAttackRelease('16n', now);
+          (synth as any).triggerAttackRelease('16n', now);
           console.log("Enemy explosion sound triggered");
           break;
 
         case SoundEffect.BOSS_EXPLOSION:
-          (synth as Tone.NoiseSynth).triggerAttackRelease('4n', now);
+          (synth as any).triggerAttackRelease('4n', now);
           console.log("Boss explosion sound triggered");
           break;
 
         case SoundEffect.LEVEL_COMPLETE:
-          (synth as Tone.Synth).triggerAttackRelease('C4', '8n', now);
+          (synth as any).triggerAttackRelease('C4', '8n', now);
           console.log("Level complete sound triggered");
           break;
 
         case SoundEffect.GAME_OVER:
-          (synth as Tone.Synth).triggerAttackRelease('C4', '4n', now);
+          (synth as any).triggerAttackRelease('C4', '4n', now);
           console.log("Game over sound triggered");
           break;
 
         case SoundEffect.MENU_SELECT:
-          (synth as Tone.MembraneSynth).triggerAttackRelease('C3', '32n', now);
+          (synth as any).triggerAttackRelease('C3', '32n', now);
           console.log("Menu select sound triggered");
           break;
 
         case SoundEffect.MENU_NAVIGATE:
-          (synth as Tone.MembraneSynth).triggerAttackRelease('G3', '32n', now);
+          (synth as any).triggerAttackRelease('G3', '32n', now);
           console.log("Menu navigate sound triggered");
           break;
 
         case SoundEffect.COIN_INSERT:
-          (synth as Tone.MetalSynth).triggerAttackRelease('32n', now);
+          (synth as any).triggerAttackRelease('32n', now);
           console.log("Coin insert sound triggered");
           break;
 
         case SoundEffect.GAME_START:
-          (synth as Tone.PolySynth).triggerAttackRelease('C4', '8n', now);
+          (synth as any).triggerAttackRelease('C4', '8n', now);
           console.log("Game start sound triggered");
           break;
 
         case SoundEffect.POWER_UP:
           // Simplified power-up sound to avoid timing issues
-          (synth as Tone.Synth).triggerAttackRelease('C5', '16n', now);
+          (synth as any).triggerAttackRelease('C5', '16n', now);
           console.log("Power up sound triggered");
           break;
 
         case SoundEffect.VAMPIRE_CAPTURE:
-          (synth as Tone.FMSynth).triggerAttackRelease('G2', '2n', now);
+          (synth as any).triggerAttackRelease('G2', '2n', now);
           console.log("Vampire capture sound triggered");
           break;
 
         case SoundEffect.VAMPIRE_TRANSFORM:
-          (synth as Tone.NoiseSynth).triggerAttackRelease('4n', now);
+          (synth as any).triggerAttackRelease('4n', now);
           console.log("Vampire transform sound triggered");
           break;
       }
@@ -801,6 +851,11 @@ export class SoundEngine {
    * @param forceRestart If true, will restart the music even if it's already playing
    */
   public async startMusic(forceRestart: boolean = false): Promise<void> {
+    if (!isBrowser || !Tone) {
+      console.warn("Cannot start music - not in browser or Tone.js not loaded");
+      return;
+    }
+    
     console.log("Starting background music...");
     console.log("Initialized:", this.isInitialized, "Muted:", this._isMuted, "Already playing:", this.musicIsPlaying);
     
@@ -853,12 +908,18 @@ export class SoundEngine {
       transport.start();
       
       // Start the main organ part
-      this.musicPart.start(0);
+      if (this.musicPart) {
+        // Use type assertion to tell TypeScript that we know what we're doing
+        const part = this.musicPart as unknown as { start: (time: number) => void };
+        part.start(0);
+      }
       
       // Start the upper register part if it exists
-      const upperPart = (this.musicPart as any).upperPart as Tone.Part;
+      const upperPart = (this.musicPart as any).upperPart;
       if (upperPart) {
-        upperPart.start(0);
+        // Use type assertion to tell TypeScript that we know what we're doing
+        const part = upperPart as unknown as { start: (time: number) => void };
+        part.start(0);
         console.log("Upper register countermelody started");
       }
       
@@ -873,6 +934,11 @@ export class SoundEngine {
    * Stop the background music
    */
   public stopMusic(): void {
+    if (!isBrowser || !Tone) {
+      console.warn("Cannot stop music - not in browser or Tone.js not loaded");
+      return;
+    }
+    
     console.log("Stopping background music...");
     
     if (!this.isInitialized) {
@@ -888,13 +954,19 @@ export class SoundEngine {
     try {
       if (this.musicPart) {
         // Stop the main organ part
-        this.musicPart.stop();
+        if (this.musicPart) {
+          // Use type assertion to tell TypeScript that we know what we're doing
+          const part = this.musicPart as unknown as { stop: () => void };
+          part.stop();
+        }
         console.log("Main organ part stopped");
         
         // Stop the upper register part if it exists
-        const upperPart = (this.musicPart as any).upperPart as Tone.Part;
+        const upperPart = (this.musicPart as any).upperPart;
         if (upperPart) {
-          upperPart.stop();
+          // Use type assertion to tell TypeScript that we know what we're doing
+          const part = upperPart as unknown as { stop: () => void };
+          part.stop();
           console.log("Upper register countermelody stopped");
         }
       } else {
@@ -920,6 +992,11 @@ export class SoundEngine {
    * Complete recreation approach for maximum reliability
    */
   public async restartMusic(): Promise<void> {
+    if (!isBrowser || !Tone) {
+      console.warn("Cannot restart music - not in browser or Tone.js not loaded");
+      return;
+    }
+    
     console.log("Restarting background music with complete recreation approach...");
     
     try {
@@ -939,14 +1016,18 @@ export class SoundEngine {
       if (this.musicPart) {
         try {
           // Get the upper part before disposing the main part
-          const upperPart = (this.musicPart as any).upperPart as Tone.Part;
+          const upperPart = (this.musicPart as any).upperPart;
           
           // Dispose the main part
-          this.musicPart.dispose();
+          // Use type assertion to tell TypeScript that we know what we're doing
+          const part = this.musicPart as unknown as { dispose: () => void };
+          part.dispose();
           
           // Dispose the upper part if it exists
           if (upperPart) {
-            upperPart.dispose();
+            // Use type assertion to tell TypeScript that we know what we're doing
+            const part = upperPart as unknown as { dispose: () => void };
+            part.dispose();
           }
           
           console.log("Disposed existing music parts");
@@ -988,12 +1069,18 @@ export class SoundEngine {
         transport.start();
         
         // Start the main organ part
-        this.musicPart.start(0);
+        if (this.musicPart) {
+          // Use type assertion to tell TypeScript that we know what we're doing
+          const part = this.musicPart as unknown as { start: (time: number) => void };
+          part.start(0);
+        }
         
         // Start the upper register part if it exists
         const upperPart = (this.musicPart as any).upperPart;
-        if (upperPart && typeof upperPart.start === 'function') {
-          upperPart.start(0);
+        if (upperPart) {
+          // Use type assertion to tell TypeScript that we know what we're doing
+          const part = upperPart as unknown as { start: (time: number) => void };
+          part.start(0);
           console.log("Upper register countermelody started");
         }
         
@@ -1021,12 +1108,18 @@ export class SoundEngine {
         if (this.musicPart) {
           const transport = Tone.getTransport();
           transport.start();
-          this.musicPart.start(0);
+          if (this.musicPart) {
+            // Use type assertion to tell TypeScript that we know what we're doing
+            const part = this.musicPart as unknown as { start: (time: number) => void };
+            part.start(0);
+          }
           
           // Start the upper register part if it exists
           const upperPart = (this.musicPart as any).upperPart;
-          if (upperPart && typeof upperPart.start === 'function') {
-            upperPart.start(0);
+          if (upperPart) {
+            // Use type assertion to tell TypeScript that we know what we're doing
+            const part = upperPart as unknown as { start: (time: number) => void };
+            part.start(0);
           }
           
           this.musicIsPlaying = true;
@@ -1058,6 +1151,11 @@ export class SoundEngine {
    * Toggle mute state
    */
   public async toggleMute(): Promise<boolean> {
+    if (!isBrowser || !Tone) {
+      console.warn("Cannot toggle mute - not in browser or Tone.js not loaded");
+      return this._isMuted;
+    }
+    
     // Ensure audio context is resumed
     try {
       const context = Tone.getContext();
@@ -1154,11 +1252,15 @@ export class SoundEngine {
     });
     
     if (this.musicSynth) {
-      this.musicSynth.dispose();
+      // Use type assertion to tell TypeScript that we know what we're doing
+      const synth = this.musicSynth as unknown as { dispose: () => void };
+      synth.dispose();
     }
     
     if (this.musicPart) {
-      this.musicPart.dispose();
+      // Use type assertion to tell TypeScript that we know what we're doing
+      const part = this.musicPart as unknown as { dispose: () => void };
+      part.dispose();
     }
     
     this.masterVolume.dispose();
